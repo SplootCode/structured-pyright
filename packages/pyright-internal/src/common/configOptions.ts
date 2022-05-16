@@ -43,6 +43,7 @@ export class ExecutionEnvironment {
         defaultExtraPaths: string[] | undefined
     ) {
         this.root = root || undefined;
+        // console.log(this.root);
         this.pythonVersion = defaultPythonVersion || latestStablePythonVersion;
         this.pythonPlatform = defaultPythonPlatform;
         this.extraPaths = [...(defaultExtraPaths ?? [])];

@@ -8,6 +8,7 @@
  * syntax tree (AST).
  */
 
+import { Scope } from '../analyzer/scope';
 import { TextRange } from '../common/textRange';
 import {
     IdentifierToken,
@@ -158,6 +159,7 @@ export function extendRange(node: ParseNodeBase, newRange: TextRange) {
 export type ParseNodeArray = (ParseNode | undefined)[];
 
 export interface ModuleNode extends ParseNodeBase {
+    scope?: Scope;
     readonly nodeType: ParseNodeType.Module;
     statements: StatementNode[];
 }

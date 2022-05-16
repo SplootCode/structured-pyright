@@ -10,7 +10,7 @@
 
 import { getHeapStatistics } from 'v8';
 import { CancellationToken, CompletionItem, DocumentSymbol } from 'vscode-languageserver';
-import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
+// import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 import {
     CallHierarchyIncomingCall,
     CallHierarchyItem,
@@ -20,16 +20,35 @@ import {
     MarkupKind,
 } from 'vscode-languageserver-types';
 
-import { OperationCanceledException, throwIfCancellationRequested } from '../common/cancellationUtils';
-import { appendArray } from '../common/collectionUtils';
-import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
-import { ConsoleInterface, StandardConsole } from '../common/console';
-import { assert, assertNever } from '../common/debug';
-import { Diagnostic } from '../common/diagnostic';
-import { FileDiagnostics } from '../common/diagnosticSink';
-import { FileEditAction, FileEditActions, TextEditAction } from '../common/editAction';
-import { LanguageServiceExtension } from '../common/extensibility';
-import { LogTracker } from '../common/logTracker';
+import { AbsoluteModuleDescriptor, ImportLookupResult } from 'pyright-internal/analyzer/analyzerFileInfo';
+import * as AnalyzerNodeInfo from 'pyright-internal/analyzer/analyzerNodeInfo';
+import { CircularDependency } from 'pyright-internal/analyzer/circularDependency';
+import { Declaration } from 'pyright-internal/analyzer/declaration';
+import { ImportResolver } from 'pyright-internal/analyzer/importResolver';
+import { ImportResult, ImportType } from 'pyright-internal/analyzer/importResult';
+import { findNodeByOffset, getDocString } from 'pyright-internal/analyzer/parseTreeUtils';
+import { Scope } from 'pyright-internal/analyzer/scope';
+import { getScopeForNode } from 'pyright-internal/analyzer/scopeUtils';
+import { SourceFile } from 'pyright-internal/analyzer/sourceFile';
+import { isStubFile, SourceMapper } from 'pyright-internal/analyzer/sourceMapper';
+import { Symbol } from 'pyright-internal/analyzer/symbol';
+import { isPrivateOrProtectedName } from 'pyright-internal/analyzer/symbolNameUtils';
+import { createTracePrinter } from 'pyright-internal/analyzer/tracePrinter';
+import { TypeEvaluator } from 'pyright-internal/analyzer/typeEvaluatorTypes';
+import { createTypeEvaluatorWithTracker } from 'pyright-internal/analyzer/typeEvaluatorWithTracker';
+import { PrintTypeFlags } from 'pyright-internal/analyzer/typePrinter';
+import { Type } from 'pyright-internal/analyzer/types';
+import { TypeStubWriter } from 'pyright-internal/analyzer/typeStubWriter';
+import { OperationCanceledException, throwIfCancellationRequested } from 'pyright-internal/common/cancellationUtils';
+import { appendArray } from 'pyright-internal/common/collectionUtils';
+import { ConfigOptions, ExecutionEnvironment } from 'pyright-internal/common/configOptions';
+import { ConsoleInterface, StandardConsole } from 'pyright-internal/common/console';
+import { assert, assertNever } from 'pyright-internal/common/debug';
+import { Diagnostic } from 'pyright-internal/common/diagnostic';
+import { FileDiagnostics } from 'pyright-internal/common/diagnosticSink';
+import { FileEditAction, FileEditActions, TextEditAction } from 'pyright-internal/common/editAction';
+import { LanguageServiceExtension } from 'pyright-internal/common/extensibility';
+import { LogTracker } from 'pyright-internal/common/logTracker';
 import {
     combinePaths,
     getDirectoryPath,
@@ -40,52 +59,41 @@ import {
     normalizePath,
     normalizePathCase,
     stripFileExtension,
-} from '../common/pathUtils';
-import { convertPositionToOffset, convertRangeToTextRange, convertTextRangeToRange } from '../common/positionUtils';
-import { computeCompletionSimilarity } from '../common/stringUtils';
-import { DocumentRange, doesRangeContain, doRangesIntersect, Position, Range } from '../common/textRange';
-import { Duration, timingStats } from '../common/timing';
+} from 'pyright-internal/common/pathUtils';
+import {
+    convertPositionToOffset,
+    convertRangeToTextRange,
+    convertTextRangeToRange,
+} from 'pyright-internal/common/positionUtils';
+import { computeCompletionSimilarity } from 'pyright-internal/common/stringUtils';
+import { DocumentRange, doesRangeContain, doRangesIntersect, Position, Range } from 'pyright-internal/common/textRange';
+import { Duration, timingStats } from 'pyright-internal/common/timing';
 import {
     AutoImporter,
     AutoImportResult,
     buildModuleSymbolsMap,
     ModuleSymbolMap,
-} from '../languageService/autoImporter';
-import { CallHierarchyProvider } from '../languageService/callHierarchyProvider';
+} from 'pyright-internal/languageService/autoImporter';
+import { CallHierarchyProvider } from 'pyright-internal/languageService/callHierarchyProvider';
 import {
     AbbreviationMap,
     CompletionMap,
     CompletionOptions,
     CompletionResultsList,
-} from '../languageService/completionProvider';
-import { DefinitionFilter } from '../languageService/definitionProvider';
-import { DocumentSymbolCollector } from '../languageService/documentSymbolCollector';
-import { IndexOptions, IndexResults, WorkspaceSymbolCallback } from '../languageService/documentSymbolProvider';
-import { HoverResults } from '../languageService/hoverProvider';
-import { ReferenceCallback, ReferencesResult } from '../languageService/referencesProvider';
-import { RenameModuleProvider } from '../languageService/renameModuleProvider';
-import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
-import { ParseNodeType } from '../parser/parseNodes';
-import { ParseResults } from '../parser/parser';
-import { AbsoluteModuleDescriptor, ImportLookupResult } from './analyzerFileInfo';
-import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import { CircularDependency } from './circularDependency';
-import { Declaration } from './declaration';
-import { ImportResolver } from './importResolver';
-import { ImportResult, ImportType } from './importResult';
-import { findNodeByOffset, getDocString } from './parseTreeUtils';
-import { Scope } from './scope';
-import { getScopeForNode } from './scopeUtils';
-import { SourceFile } from './sourceFile';
-import { isStubFile, SourceMapper } from './sourceMapper';
-import { Symbol } from './symbol';
-import { isPrivateOrProtectedName } from './symbolNameUtils';
-import { createTracePrinter } from './tracePrinter';
-import { TypeEvaluator } from './typeEvaluatorTypes';
-import { createTypeEvaluatorWithTracker } from './typeEvaluatorWithTracker';
-import { PrintTypeFlags } from './typePrinter';
-import { Type } from './types';
-import { TypeStubWriter } from './typeStubWriter';
+} from 'pyright-internal/languageService/completionProvider';
+import { DefinitionFilter } from 'pyright-internal/languageService/definitionProvider';
+import { DocumentSymbolCollector } from 'pyright-internal/languageService/documentSymbolCollector';
+import {
+    IndexOptions,
+    IndexResults,
+    WorkspaceSymbolCallback,
+} from 'pyright-internal/languageService/documentSymbolProvider';
+import { HoverResults } from 'pyright-internal/languageService/hoverProvider';
+import { ReferenceCallback, ReferencesResult } from 'pyright-internal/languageService/referencesProvider';
+import { RenameModuleProvider } from 'pyright-internal/languageService/renameModuleProvider';
+import { SignatureHelpResults } from 'pyright-internal/languageService/signatureHelpProvider';
+import { ParseNodeType } from 'pyright-internal/parser/parseNodes';
+import { ParseResults } from 'pyright-internal/parser/parser';
 
 const _maxImportDepth = 256;
 
@@ -165,7 +173,7 @@ export interface OpenFileOptions {
 //  Referenced - part of the transitive closure
 //  Opened - temporarily opened in the editor
 //  Shadowed - implementation file that shadows a type stub file
-export class Program {
+export class SplootProgram {
     private _console: ConsoleInterface;
     private _sourceFileList: SourceFileInfo[] = [];
     private _sourceFileMap = new Map<string, SourceFileInfo>();
@@ -293,57 +301,57 @@ export class Program {
         return sourceFile;
     }
 
-    setFileOpened(
-        filePath: string,
-        version: number | null,
-        contents: TextDocumentContentChangeEvent[],
-        options?: OpenFileOptions
-    ) {
-        let sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
-        if (!sourceFileInfo) {
-            const importName = this._getImportNameForFile(filePath);
-            const sourceFile = new SourceFile(
-                this._fs,
-                filePath,
-                importName,
-                /* isThirdPartyImport */ false,
-                /* isInPyTypedPackage */ false,
-                this._console,
-                this._logTracker,
-                options?.ipythonMode ?? false
-            );
+    // setFileOpened(
+    //     filePath: string,
+    //     version: number | null,
+    //     contents: TextDocumentContentChangeEvent[],
+    //     options?: OpenFileOptions
+    // ) {
+    //     let sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+    //     if (!sourceFileInfo) {
+    //         const importName = this._getImportNameForFile(filePath);
+    //         const sourceFile = new SourceFile(
+    //             this._fs,
+    //             filePath,
+    //             importName,
+    //             /* isThirdPartyImport */ false,
+    //             /* isInPyTypedPackage */ false,
+    //             this._console,
+    //             this._logTracker,
+    //             options?.ipythonMode ?? false
+    //         );
 
-            // ChainedSourceFile can only be set by open file. And once it is set,
-            // it can't be changed. It can only be removed (deleted). File from fs
-            // can't set chained source file.
-            const chainedFilePath = options?.chainedFilePath;
-            sourceFileInfo = {
-                sourceFile,
-                isTracked: options?.isTracked ?? false,
-                chainedSourceFile: chainedFilePath ? this._getSourceFileInfoFromPath(chainedFilePath) : undefined,
-                isOpenByClient: true,
-                isTypeshedFile: false,
-                isThirdPartyImport: false,
-                isThirdPartyPyTypedPresent: false,
-                diagnosticsVersion: undefined,
-                imports: [],
-                importedBy: [],
-                shadows: [],
-                shadowedBy: [],
-            };
-            this._addToSourceFileListAndMap(sourceFileInfo);
-        } else {
-            sourceFileInfo.isOpenByClient = true;
+    //         // ChainedSourceFile can only be set by open file. And once it is set,
+    //         // it can't be changed. It can only be removed (deleted). File from fs
+    //         // can't set chained source file.
+    //         const chainedFilePath = options?.chainedFilePath;
+    //         sourceFileInfo = {
+    //             sourceFile,
+    //             isTracked: options?.isTracked ?? false,
+    //             chainedSourceFile: chainedFilePath ? this._getSourceFileInfoFromPath(chainedFilePath) : undefined,
+    //             isOpenByClient: true,
+    //             isTypeshedFile: false,
+    //             isThirdPartyImport: false,
+    //             isThirdPartyPyTypedPresent: false,
+    //             diagnosticsVersion: undefined,
+    //             imports: [],
+    //             importedBy: [],
+    //             shadows: [],
+    //             shadowedBy: [],
+    //         };
+    //         this._addToSourceFileListAndMap(sourceFileInfo);
+    //     } else {
+    //         sourceFileInfo.isOpenByClient = true;
 
-            // Reset the diagnostic version so we force an update to the
-            // diagnostics, which can change based on whether the file is open.
-            // We do not set the version to undefined here because that implies
-            // there are no diagnostics currently reported for this file.
-            sourceFileInfo.diagnosticsVersion = 0;
-        }
+    //         // Reset the diagnostic version so we force an update to the
+    //         // diagnostics, which can change based on whether the file is open.
+    //         // We do not set the version to undefined here because that implies
+    //         // there are no diagnostics currently reported for this file.
+    //         sourceFileInfo.diagnosticsVersion = 0;
+    //     }
 
-        sourceFileInfo.sourceFile.setClientVersion(version, contents);
-    }
+    //     sourceFileInfo.sourceFile.setClientVersion(version, contents);
+    // }
 
     setFileClosed(filePath: string): FileDiagnostics[] {
         const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
@@ -822,7 +830,7 @@ export class Program {
         this._evaluator = createTypeEvaluatorWithTracker(
             this._lookUpImport,
             {
-                printTypeFlags: Program._getPrintTypeFlags(this._configOptions),
+                printTypeFlags: SplootProgram._getPrintTypeFlags(this._configOptions),
                 logCalls: this._configOptions.logTypeEvaluationTime,
                 minimumLoggingThreshold: this._configOptions.typeEvaluationTimeThreshold,
                 analyzeUnannotatedFunctions: this._configOptions.analyzeUnannotatedFunctions,
@@ -842,12 +850,51 @@ export class Program {
         return this._evaluator;
     }
 
-    private async _parseFile(fileToParse: SourceFileInfo, content?: string) {
+    public async parseRecursively(rootFile: string) {
+        const sourceFileInfo = this._getSourceFileInfoFromPath(rootFile);
+        if (sourceFileInfo === undefined) {
+            console.warn('Attempting to parse undefined file,', rootFile);
+            return;
+        }
+        const closureMap = new Map<string, SourceFileInfo>();
+
+        return this._parseRecursively(sourceFileInfo, closureMap, 1);
+    }
+
+    private async _parseRecursively(
+        file: SourceFileInfo,
+        closureMap: Map<string, SourceFileInfo>,
+        recursionCount: number
+    ): Promise<void> {
+        console.log('parse recursively', file.sourceFile.getFilePath());
+        await this._parseFileAsync(file);
+
+        // If the import chain is too long, emit an error. Otherwise we
+        // risk blowing the stack.
+        if (recursionCount > _maxImportDepth) {
+            file.sourceFile.setHitMaxImportDepth(_maxImportDepth);
+            return;
+        }
+
+        // Recursively add the file's imports and parse them too.
+        const promises = file.imports.map((importedFileInfo) => {
+            const filePath = normalizePathCase(this._fs, importedFileInfo.sourceFile.getFilePath());
+            if (closureMap.has(filePath)) {
+                return null;
+            }
+            closureMap.set(filePath, file);
+            return this._parseRecursively(importedFileInfo, closureMap, recursionCount + 1);
+        });
+
+        await Promise.all(promises);
+    }
+
+    private async _parseFileAsync(fileToParse: SourceFileInfo, content?: string) {
         if (!this._isFileNeeded(fileToParse) || !fileToParse.sourceFile.isParseRequired()) {
             return;
         }
 
-        if (await fileToParse.sourceFile.parse(this._configOptions, this._importResolver, content)) {
+        if (await fileToParse.sourceFile.parseAsync(this._configOptions, this._importResolver, content)) {
             this._parsedFileCount++;
             this._updateSourceFileImports(fileToParse, this._configOptions);
         }
@@ -867,19 +914,19 @@ export class Program {
 
     // Binds the specified file and all of its dependencies, recursively. If
     // it runs out of time, it returns true. If it completes, it returns false.
-    private async _bindFile(fileToAnalyze: SourceFileInfo, content?: string): Promise<void> {
+    private _bindFile(fileToAnalyze: SourceFileInfo, content?: string): void {
         if (!this._isFileNeeded(fileToAnalyze) || !fileToAnalyze.sourceFile.isBindingRequired()) {
             return;
         }
 
-        await this._parseFile(fileToAnalyze, content);
+        // this._parseFile(fileToAnalyze, content);
 
-        const getScopeIfAvailable = async (fileInfo: SourceFileInfo | undefined) => {
+        const getScopeIfAvailable = (fileInfo: SourceFileInfo | undefined) => {
             if (!fileInfo || fileInfo === fileToAnalyze) {
                 return undefined;
             }
 
-            await this._bindFile(fileInfo);
+            this._bindFile(fileInfo);
             if (fileInfo.sourceFile.isFileDeleted()) {
                 return undefined;
             }
@@ -900,9 +947,9 @@ export class Program {
             // If it is not builtin module itself, we need to parse and bind
             // the ipython display import if required. Otherwise, get builtin module.
             builtinsScope =
-                (await getScopeIfAvailable(fileToAnalyze.chainedSourceFile)) ??
-                (await getScopeIfAvailable(fileToAnalyze.ipythonDisplayImport)) ??
-                (await getScopeIfAvailable(fileToAnalyze.builtinsImport));
+                getScopeIfAvailable(fileToAnalyze.chainedSourceFile) ??
+                getScopeIfAvailable(fileToAnalyze.ipythonDisplayImport) ??
+                getScopeIfAvailable(fileToAnalyze.builtinsImport);
         }
 
         fileToAnalyze.sourceFile.bind(this._configOptions, this._lookUpImport, builtinsScope);
@@ -949,9 +996,9 @@ export class Program {
         if (sourceFileInfo.sourceFile.isBindingRequired()) {
             // Bind the file if it's not already bound. Don't count this time
             // against the type checker.
-            timingStats.typeCheckerTime.subtractFromTime(() => {
-                this._bindFile(sourceFileInfo!);
-            });
+            // timingStats.typeCheckerTime.subtractFromTime(() => {
+            this._bindFile(sourceFileInfo!);
+            // });
         }
 
         const symbolTable = sourceFileInfo.sourceFile.getModuleSymbolTable();
@@ -1198,31 +1245,31 @@ export class Program {
         }
     }
 
-    async getTextOnRange(filePath: string, range: Range, token: CancellationToken): Promise<string | undefined> {
-        const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
-        if (!sourceFileInfo) {
-            return undefined;
-        }
+    // getTextOnRange(filePath: string, range: Range, token: CancellationToken): string | undefined {
+    //     const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+    //     if (!sourceFileInfo) {
+    //         return undefined;
+    //     }
 
-        const sourceFile = sourceFileInfo.sourceFile;
-        const fileContents = sourceFile.getOpenFileContents();
-        if (fileContents === undefined) {
-            // this only works with opened file
-            return undefined;
-        }
+    //     const sourceFile = sourceFileInfo.sourceFile;
+    //     const fileContents = sourceFile.getOpenFileContents();
+    //     if (fileContents === undefined) {
+    //         // this only works with opened file
+    //         return undefined;
+    //     }
 
-        return await this._runEvaluatorWithCancellationToken(token, async () => {
-            this._parseFile(sourceFileInfo);
+    //     return this._runEvaluatorWithCancellationToken(token, () => {
+    //         this._parseFile(sourceFileInfo);
 
-            const parseTree = sourceFile.getParseResults()!;
-            const textRange = convertRangeToTextRange(range, parseTree.tokenizerOutput.lines);
-            if (!textRange) {
-                return undefined;
-            }
+    //         const parseTree = sourceFile.getParseResults()!;
+    //         const textRange = convertRangeToTextRange(range, parseTree.tokenizerOutput.lines);
+    //         if (!textRange) {
+    //             return undefined;
+    //         }
 
-            return fileContents.substr(textRange.start, textRange.length);
-        });
-    }
+    //         return fileContents.substr(textRange.start, textRange.length);
+    //     });
+    // }
 
     getAutoImports(
         filePath: string,
@@ -1663,7 +1710,7 @@ export class Program {
         });
     }
 
-    async getCompletionsForPosition(
+    getCompletionsForPosition(
         filePath: string,
         position: Position,
         workspacePath: string,
@@ -1671,7 +1718,7 @@ export class Program {
         nameMap: AbbreviationMap | undefined,
         libraryMap: Map<string, IndexResults> | undefined,
         token: CancellationToken
-    ): Promise<CompletionResultsList | undefined> {
+    ): CompletionResultsList | undefined {
         const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
         if (!sourceFileInfo) {
             return undefined;
@@ -1726,7 +1773,7 @@ export class Program {
         if (parseResults?.parseTree && parseResults?.text) {
             const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
             if (offset !== undefined) {
-                await this._extension.completionListExtension.updateCompletionResults(
+                this._extension.completionListExtension.updateCompletionResults(
                     completionResultsList,
                     parseResults,
                     offset,
@@ -2493,14 +2540,15 @@ export class Program {
             execEnv,
             this._evaluator!,
             (stubFilePath: string, implFilePath: string) => {
-                const stubFileInfo = this._getSourceFileInfoFromPath(stubFilePath);
-                if (!stubFileInfo) {
-                    return undefined;
-                }
-                this._addShadowedFile(stubFileInfo, implFilePath);
-                return this.getBoundSourceFile(implFilePath);
+                // const stubFileInfo = this._getSourceFileInfoFromPath(stubFilePath);
+                // if (!stubFileInfo) {
+                //     return undefined;
+                // }
+                // this._addShadowedFile(stubFileInfo, implFilePath);
+                // return this.getBoundSourceFile(implFilePath);
+                return undefined;
             },
-            (f) => this.getBoundSourceFile(f),
+            (f) => undefined, //this.getBoundSourceFile(f),
             mapCompiled ?? false,
             preferStubs ?? false
         );
