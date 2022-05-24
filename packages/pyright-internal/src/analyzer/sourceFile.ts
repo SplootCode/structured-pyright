@@ -7,16 +7,16 @@
  * Class that represents a single python source file.
  */
 
-import {
+import type {
     CancellationToken,
     CompletionItem,
     DocumentHighlight,
     DocumentSymbol,
     MarkupKind,
 } from 'vscode-languageserver';
-import { TextDocument, TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
-import { isMainThread } from 'worker_threads';
+import type { TextDocument, TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 
+// import { isMainThread } from 'worker_threads';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
 import { OperationCanceledException } from '../common/cancellationUtils';
 import { ConfigOptions, ExecutionEnvironment, getBasicDiagnosticRuleSet } from '../common/configOptions';
@@ -41,7 +41,7 @@ import { DefinitionFilter, DefinitionProvider } from '../languageService/definit
 import { DocumentHighlightProvider } from '../languageService/documentHighlightProvider';
 import { DocumentSymbolProvider, IndexOptions, IndexResults } from '../languageService/documentSymbolProvider';
 import { HoverProvider, HoverResults } from '../languageService/hoverProvider';
-import { performQuickAction } from '../languageService/quickActions';
+// import { performQuickAction } from '../languageService/quickActions';
 import { ReferenceCallback, ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
 import { SignatureHelpProvider, SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { Localizer } from '../localization/localize';
@@ -227,7 +227,7 @@ export class SourceFile {
         }
 
         // 'FG' or 'BG' based on current thread.
-        this._logTracker = logTracker ?? new LogTracker(console, isMainThread ? 'FG' : 'BG');
+        this._logTracker = logTracker ?? new LogTracker(console, 'FG');
         this._ipythonMode = ipythonMode;
     }
 
@@ -631,26 +631,23 @@ export class SourceFile {
     }
 
     setClientVersion(version: number | null, contents: TextDocumentContentChangeEvent[]): void {
-        if (version === null) {
-            this._clientDocument = undefined;
-        } else {
-            if (!this._clientDocument) {
-                this._clientDocument = TextDocument.create(this._filePath, 'python', version, '');
-            }
-            this._clientDocument = TextDocument.update(this._clientDocument, contents, version);
-
-            const fileContents = this._clientDocument.getText();
-            const contentsHash = StringUtils.hashString(fileContents);
-
-            // Have the contents of the file changed?
-            if (fileContents.length !== this._lastFileContentLength || contentsHash !== this._lastFileContentHash) {
-                this.markDirty();
-            }
-
-            this._lastFileContentLength = fileContents.length;
-            this._lastFileContentHash = contentsHash;
-            this._isFileDeleted = false;
-        }
+        //     if (version === null) {
+        //         this._clientDocument = undefined;
+        //     } else {
+        //         if (!this._clientDocument) {
+        //             this._clientDocument = TextDocument.create(this._filePath, 'python', version, '');
+        //         }
+        //         this._clientDocument = TextDocument.update(this._clientDocument, contents, version);
+        //         const fileContents = this._clientDocument.getText();
+        //         const contentsHash = StringUtils.hashString(fileContents);
+        //         // Have the contents of the file changed?
+        //         if (fileContents.length !== this._lastFileContentLength || contentsHash !== this._lastFileContentHash) {
+        //             this.markDirty();
+        //         }
+        //         this._lastFileContentLength = fileContents.length;
+        //         this._lastFileContentHash = contentsHash;
+        //         this._isFileDeleted = false;
+        //     }
     }
 
     prepareForClose() {
@@ -729,6 +726,28 @@ export class SourceFile {
 
     setHitMaxImportDepth(maxImportDepth: number) {
         this._hitMaxImportDepth = maxImportDepth;
+    }
+
+    overrideParseResults(parseResults: ParseResults, configOptions: ConfigOptions, importResolver: ImportResolver) {
+        const diagSink = new DiagnosticSink();
+        const execEnvironment = configOptions.findExecEnvironment(this._filePath);
+
+        this._parseResults = parseResults;
+        const importResult = this._resolveImports(importResolver, parseResults.importedModules, execEnvironment);
+
+        this._imports = importResult.imports;
+        this._builtinsImport = importResult.builtinsImportResult;
+        this._ipythonDisplayImport = importResult.ipythonDisplayImportResult;
+
+        this._parseDiagnostics = diagSink.fetchAndClear();
+
+        this._analyzedFileContentsVersion = this._fileContentsVersion;
+        this._indexingNeeded = true;
+        this._isBindingNeeded = true;
+        this._isCheckingNeeded = true;
+        this._parseTreeNeedsCleaning = false;
+        this._hitMaxImportDepth = undefined;
+        this._diagnosticVersion++;
     }
 
     async parseAsync(configOptions: ConfigOptions, importResolver: ImportResolver, content?: string) {
@@ -1312,7 +1331,8 @@ export class SourceFile {
             return undefined;
         }
 
-        return performQuickAction(command, args, this._parseResults, token);
+        // return performQuickAction(command, args, this._parseResults, token);
+        return undefined;
     }
 
     bind(configOptions: ConfigOptions, importLookup: ImportLookup, builtinsScope: Scope | undefined) {

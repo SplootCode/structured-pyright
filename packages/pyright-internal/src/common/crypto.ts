@@ -10,15 +10,15 @@ import { fail } from './debug';
 
 let nodeCrypto: typeof import('crypto') | undefined;
 
-try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    nodeCrypto = require('crypto');
-    if (!nodeCrypto?.randomBytes) {
-        nodeCrypto = undefined;
-    }
-} catch {
-    // Not running in node.
-}
+// try {
+//     // eslint-disable-next-line @typescript-eslint/no-var-requires
+//     nodeCrypto = require('crypto');
+//     if (!nodeCrypto?.randomBytes) {
+//         nodeCrypto = undefined;
+//     }
+// } catch {
+//     // Not running in node.
+// }
 
 // See lib.dom.d.ts.
 interface Crypto {

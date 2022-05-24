@@ -8,7 +8,7 @@
  * and all of their recursive imports.
  */
 
-import { getHeapStatistics } from 'v8';
+// import { getHeapStatistics } from 'v8';
 import { CancellationToken, CompletionItem, DocumentSymbol } from 'vscode-languageserver';
 import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 import {
@@ -2291,26 +2291,26 @@ export class Program {
 
     private _handleMemoryHighUsage() {
         const typeCacheEntryCount = this._evaluator!.getTypeCacheEntryCount();
-        const convertToMB = (bytes: number) => {
-            return `${Math.round(bytes / (1024 * 1024))}MB`;
-        };
+        // const convertToMB = (bytes: number) => {
+        //     return `${Math.round(bytes / (1024 * 1024))}MB`;
+        // };
 
         // If the type cache size has exceeded a high-water mark, query the heap usage.
         // Don't bother doing this until we hit this point because the heap usage may not
         // drop immediately after we empty the cache due to garbage collection timing.
         if (typeCacheEntryCount > 750000 || this._parsedFileCount > 1000) {
-            const heapStats = getHeapStatistics();
+            // const heapStats = getHeapStatistics();
 
-            if (this._configOptions.verboseOutput) {
-                this._console.info(
-                    `Heap stats: ` +
-                        `total_heap_size=${convertToMB(heapStats.total_heap_size)}, ` +
-                        `used_heap_size=${convertToMB(heapStats.used_heap_size)}, ` +
-                        `total_physical_size=${convertToMB(heapStats.total_physical_size)}, ` +
-                        `total_available_size=${convertToMB(heapStats.total_available_size)}, ` +
-                        `heap_size_limit=${convertToMB(heapStats.heap_size_limit)}`
-                );
-            }
+            // if (this._configOptions.verboseOutput) {
+            //     this._console.info(
+            //         `Heap stats: ` +
+            //             `total_heap_size=${convertToMB(heapStats.total_heap_size)}, ` +
+            //             `used_heap_size=${convertToMB(heapStats.used_heap_size)}, ` +
+            //             `total_physical_size=${convertToMB(heapStats.total_physical_size)}, ` +
+            //             `total_available_size=${convertToMB(heapStats.total_available_size)}, ` +
+            //             `heap_size_limit=${convertToMB(heapStats.heap_size_limit)}`
+            //     );
+            // }
 
             // The type cache uses a Map, which has an absolute limit of 2^24 entries
             // before it will fail. If we cross the 95% mark, we'll empty the cache.
@@ -2319,14 +2319,14 @@ export class Program {
             // If we use more than 90% of the heap size limit, avoid a crash
             // by emptying the type cache.
             if (
-                typeCacheEntryCount > absoluteMaxCacheEntryCount ||
-                heapStats.used_heap_size > heapStats.heap_size_limit * 0.9
+                typeCacheEntryCount > absoluteMaxCacheEntryCount
+                //  || heapStats.used_heap_size > heapStats.heap_size_limit * 0.9
             ) {
-                this._console.info(
-                    `Emptying type cache to avoid heap overflow. Used ${convertToMB(
-                        heapStats.used_heap_size
-                    )} out of ${convertToMB(heapStats.heap_size_limit)} (${typeCacheEntryCount} cache entries).`
-                );
+                // this._console.info(
+                //     `Emptying type cache to avoid heap overflow. Used ${convertToMB(
+                //         heapStats.used_heap_size
+                //     )} out of ${convertToMB(heapStats.heap_size_limit)} (${typeCacheEntryCount} cache entries).`
+                // );
                 this._createNewEvaluator();
                 this._discardCachedParseResults();
                 this._parsedFileCount = 0;

@@ -1,4 +1,4 @@
-import { Dirent, readdirSync, readFileSync, ReadStream, WriteStream } from 'fs';
+import type { Dirent, ReadStream, WriteStream } from 'fs';
 
 import {
     FileSystem,
@@ -8,19 +8,6 @@ import {
     Stats,
     TmpfileOptions,
 } from 'pyright-internal/common/fileSystem';
-
-function file(name: string): Dirent {
-    return {
-        name: name,
-        isFile: () => true,
-        isDirectory: () => false,
-        isBlockDevice: () => false,
-        isCharacterDevice: () => false,
-        isSymbolicLink: () => false,
-        isFIFO: () => false,
-        isSocket: () => false,
-    };
-}
 
 function dir(name: string): Dirent {
     return {
@@ -36,6 +23,12 @@ function dir(name: string): Dirent {
 }
 
 export class FakeFileSystem implements FileSystem {
+    private _hostedTypeshedBasePath: string;
+
+    constructor(hostedTypeshedBasePath: string) {
+        this._hostedTypeshedBasePath = hostedTypeshedBasePath;
+    }
+
     existsSync(path: string): boolean {
         console.log(path);
         switch (path) {
@@ -57,26 +50,15 @@ export class FakeFileSystem implements FileSystem {
     readdirEntriesSync(path: string): Dirent[] {
         console.log('readdirEntriesSync', path);
         if (path === '/fake') {
-            return [file('main.py')];
+            return []; // [file('main.py')];
         } else if (path === '/typeshed/typeshed-fallback') {
             return [dir('stdlib'), dir('stubs')];
         } else if (path === '/typeshed/typeshed-fallback/stdlib') {
-            // return [
-            //     dir('_typeshed'),
-            //     dir('os'),
-            //     file('__future__.pyi'),
-            //     file('__main__.pyi'),
-            //     file('_ast.pyi'),
-            //     file('_collections_abc.pyi'),
-            //     file('builtins.pyi'),
-            //     file('types.pyi'),
-            //     file('sys.pyi'),
-            //     file('VERSIONS'),
-            // ];
-            const res = readdirSync('./dist/typeshed-fallback/stdlib/', { withFileTypes: true });
-            return res;
+            // const res = readdirSync('./dist/typeshed-fallback/stdlib/', { withFileTypes: true });
+            return [];
         } else if (path === '/typeshed/typeshed-fallback/stdlib/_typeshed') {
-            return readdirSync('./dist/typeshed-fallback/stdlib/_typeshed', { withFileTypes: true });
+            // return readdirSync('./dist/typeshed-fallback/stdlib/_typeshed', { withFileTypes: true });
+            return [];
         }
 
         throw new Error('Method not implemented.');
@@ -91,9 +73,9 @@ export class FakeFileSystem implements FileSystem {
     readFileSync(path: any, encoding?: any): string | Buffer {
         console.log('readFileSync', path);
         if (path === '/typeshed/typeshed-fallback/stdlib/VERSIONS') {
-            const st = readFileSync('./dist/typeshed-fallback/stdlib/VERSIONS', 'utf8');
-            // console.log(st);
-            return st;
+            // const st = readFileSync('./dist/typeshed-fallback/stdlib/VERSIONS', 'utf8');
+            // return st;
+            return '';
         }
         throw new Error('Method not implemented.');
     }
@@ -101,19 +83,6 @@ export class FakeFileSystem implements FileSystem {
         throw new Error('Method not implemented.');
     }
     statSync(path: string): Stats {
-        // if (path === '/fake/main.py') {
-        //     return {
-        //         size: 10,
-        //         isFile: () => true,
-        //         isDirectory: () => false,
-        //         isBlockDevice: () => false,
-        //         isCharacterDevice: () => false,
-        //         isFIFO: () => false,
-        //         isSocket: () => false,
-        //         isSymbolicLink: () => false,
-        //     };
-        // }
-        // console.log('statSync:', path);
         if (path === '/typeshed/typeshed-fallback/stdlib/VERSIONS') {
             return {
                 size: 100,
@@ -159,12 +128,10 @@ export class FakeFileSystem implements FileSystem {
         console.log('reading:', path);
         const promise: Promise<string> = new Promise((resolve, reject) => {
             setTimeout(() => {
-                if (path === '/fake/main.py') {
-                    resolve('x = "hi"\nprint(x)\n');
-                }
                 if (path.startsWith('/typeshed/typeshed-fallback/')) {
-                    const st = readFileSync('./dist' + path.slice(9), 'utf8');
-                    resolve(st);
+                    // const st = readFileSync('./dist' + path.slice(9), 'utf8');
+                    // resolve(st);
+                    resolve('');
                 }
             }, 1000);
         });

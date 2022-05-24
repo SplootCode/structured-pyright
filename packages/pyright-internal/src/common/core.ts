@@ -128,8 +128,9 @@ export function toBoolean(trueOrFalse: string): boolean {
 }
 
 export function isDebugMode() {
-    const argv = process.execArgv.join();
-    return argv.includes('inspect') || argv.includes('debug');
+    // const argv = process.execArgv.join();
+    // return argv.includes('inspect') || argv.includes('debug');
+    return false;
 }
 
 interface Thenable<T> {

@@ -8,8 +8,8 @@
  * and all of their recursive imports.
  */
 
-import { getHeapStatistics } from 'v8';
-import { CancellationToken, CompletionItem, DocumentSymbol } from 'vscode-languageserver';
+// import { getHeapStatistics } from 'v8';
+import type { CancellationToken, CompletionItem, DocumentSymbol } from 'vscode-languageserver';
 // import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 import {
     CallHierarchyIncomingCall,
@@ -67,7 +67,7 @@ import {
 } from 'pyright-internal/common/positionUtils';
 import { computeCompletionSimilarity } from 'pyright-internal/common/stringUtils';
 import { DocumentRange, doesRangeContain, doRangesIntersect, Position, Range } from 'pyright-internal/common/textRange';
-import { Duration, timingStats } from 'pyright-internal/common/timing';
+import { timingStats } from 'pyright-internal/common/timing';
 import {
     AutoImporter,
     AutoImportResult,
@@ -301,6 +301,48 @@ export class SplootProgram {
         return sourceFile;
     }
 
+    addSplootFile(filePath: string, parseResults: ParseResults): SourceFile {
+        let sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+        if (sourceFileInfo) {
+            sourceFileInfo.isTracked = true;
+            return sourceFileInfo.sourceFile;
+        }
+
+        const importName = this._getImportNameForFile(filePath);
+        const sourceFile = new SourceFile(
+            this._fs,
+            filePath,
+            importName,
+            false,
+            false,
+            this._console,
+            this._logTracker
+        );
+
+        // This file is already parsed
+        sourceFile.overrideParseResults(parseResults, this._configOptions, this._importResolver);
+
+        sourceFileInfo = {
+            sourceFile,
+            isTracked: true,
+            isOpenByClient: false,
+            isTypeshedFile: false,
+            isThirdPartyImport: false,
+            isThirdPartyPyTypedPresent: false,
+            diagnosticsVersion: undefined,
+            imports: [],
+            importedBy: [],
+            shadows: [],
+            shadowedBy: [],
+        };
+        this._addToSourceFileListAndMap(sourceFileInfo);
+
+        this._parsedFileCount++;
+        this._updateSourceFileImports(sourceFileInfo, this._configOptions);
+
+        return sourceFile;
+    }
+
     // setFileOpened(
     //     filePath: string,
     //     version: number | null,
@@ -353,24 +395,24 @@ export class SplootProgram {
     //     sourceFileInfo.sourceFile.setClientVersion(version, contents);
     // }
 
-    setFileClosed(filePath: string): FileDiagnostics[] {
-        const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
-        if (sourceFileInfo) {
-            sourceFileInfo.isOpenByClient = false;
-            sourceFileInfo.sourceFile.setClientVersion(null, []);
+    // setFileClosed(filePath: string): FileDiagnostics[] {
+    //     const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+    //     if (sourceFileInfo) {
+    //         sourceFileInfo.isOpenByClient = false;
+    //         sourceFileInfo.sourceFile.setClientVersion(null, []);
 
-            // There is no guarantee that content is saved before the file is closed.
-            // We need to mark the file dirty so we can re-analyze next time.
-            // This won't matter much for OpenFileOnly users, but it will matter for
-            // people who use diagnosticMode Workspace.
-            if (sourceFileInfo.sourceFile.didContentsChangeOnDisk()) {
-                sourceFileInfo.sourceFile.markDirty();
-                this._markFileDirtyRecursive(sourceFileInfo, new Map<string, boolean>());
-            }
-        }
+    //         // There is no guarantee that content is saved before the file is closed.
+    //         // We need to mark the file dirty so we can re-analyze next time.
+    //         // This won't matter much for OpenFileOnly users, but it will matter for
+    //         // people who use diagnosticMode Workspace.
+    //         if (sourceFileInfo.sourceFile.didContentsChangeOnDisk()) {
+    //             sourceFileInfo.sourceFile.markDirty();
+    //             this._markFileDirtyRecursive(sourceFileInfo, new Map<string, boolean>());
+    //         }
+    //     }
 
-        return this._removeUnneededFiles();
-    }
+    //     return this._removeUnneededFiles();
+    // }
 
     markAllFilesDirty(evenIfContentsAreSame: boolean, indexingNeeded = true) {
         const markDirtyMap = new Map<string, boolean>();
@@ -497,54 +539,54 @@ export class SplootProgram {
     // whether the method needs to be called again to complete the
     // analysis. In interactive mode, the timeout is always limited
     // to the smaller value to maintain responsiveness.
-    analyze(maxTime?: MaxAnalysisTime, token: CancellationToken = CancellationToken.None): boolean {
-        return this._runEvaluatorWithCancellationToken(token, () => {
-            const elapsedTime = new Duration();
+    // analyze(maxTime?: MaxAnalysisTime, token: CancellationToken = CancellationToken.None): boolean {
+    //     return this._runEvaluatorWithCancellationToken(token, () => {
+    //         const elapsedTime = new Duration();
 
-            const openFiles = this._sourceFileList.filter(
-                (sf) => sf.isOpenByClient && sf.sourceFile.isCheckingRequired()
-            );
+    //         const openFiles = this._sourceFileList.filter(
+    //             (sf) => sf.isOpenByClient && sf.sourceFile.isCheckingRequired()
+    //         );
 
-            if (openFiles.length > 0) {
-                const effectiveMaxTime = maxTime ? maxTime.openFilesTimeInMs : Number.MAX_VALUE;
+    //         if (openFiles.length > 0) {
+    //             const effectiveMaxTime = maxTime ? maxTime.openFilesTimeInMs : Number.MAX_VALUE;
 
-                // Check the open files.
-                for (const sourceFileInfo of openFiles) {
-                    if (this._checkTypes(sourceFileInfo)) {
-                        if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
-                            return true;
-                        }
-                    }
-                }
+    //             // Check the open files.
+    //             for (const sourceFileInfo of openFiles) {
+    //                 if (this._checkTypes(sourceFileInfo)) {
+    //                     if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
+    //                         return true;
+    //                     }
+    //                 }
+    //             }
 
-                // If the caller specified a maxTime, return at this point
-                // since we've finalized all open files. We want to get
-                // the results to the user as quickly as possible.
-                if (maxTime !== undefined) {
-                    return true;
-                }
-            }
+    //             // If the caller specified a maxTime, return at this point
+    //             // since we've finalized all open files. We want to get
+    //             // the results to the user as quickly as possible.
+    //             if (maxTime !== undefined) {
+    //                 return true;
+    //             }
+    //         }
 
-            if (!this._configOptions.checkOnlyOpenFiles) {
-                const effectiveMaxTime = maxTime ? maxTime.noOpenFilesTimeInMs : Number.MAX_VALUE;
+    //         if (!this._configOptions.checkOnlyOpenFiles) {
+    //             const effectiveMaxTime = maxTime ? maxTime.noOpenFilesTimeInMs : Number.MAX_VALUE;
 
-                // Now do type parsing and analysis of the remaining.
-                for (const sourceFileInfo of this._sourceFileList) {
-                    if (!this._isUserCode(sourceFileInfo)) {
-                        continue;
-                    }
+    //             // Now do type parsing and analysis of the remaining.
+    //             for (const sourceFileInfo of this._sourceFileList) {
+    //                 if (!this._isUserCode(sourceFileInfo)) {
+    //                     continue;
+    //                 }
 
-                    if (this._checkTypes(sourceFileInfo)) {
-                        if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
-                            return true;
-                        }
-                    }
-                }
-            }
+    //                 if (this._checkTypes(sourceFileInfo)) {
+    //                     if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
+    //                         return true;
+    //                     }
+    //                 }
+    //             }
+    //         }
 
-            return false;
-        });
-    }
+    //         return false;
+    //     });
+    // }
 
     indexWorkspace(callback: (path: string, results: IndexResults) => void, token: CancellationToken): number {
         if (!this._configOptions.indexing) {
@@ -2338,26 +2380,26 @@ export class SplootProgram {
 
     private _handleMemoryHighUsage() {
         const typeCacheEntryCount = this._evaluator!.getTypeCacheEntryCount();
-        const convertToMB = (bytes: number) => {
-            return `${Math.round(bytes / (1024 * 1024))}MB`;
-        };
+        // const convertToMB = (bytes: number) => {
+        //     return `${Math.round(bytes / (1024 * 1024))}MB`;
+        // };
 
         // If the type cache size has exceeded a high-water mark, query the heap usage.
         // Don't bother doing this until we hit this point because the heap usage may not
         // drop immediately after we empty the cache due to garbage collection timing.
         if (typeCacheEntryCount > 750000 || this._parsedFileCount > 1000) {
-            const heapStats = getHeapStatistics();
+            // const heapStats = getHeapStatistics();
 
-            if (this._configOptions.verboseOutput) {
-                this._console.info(
-                    `Heap stats: ` +
-                        `total_heap_size=${convertToMB(heapStats.total_heap_size)}, ` +
-                        `used_heap_size=${convertToMB(heapStats.used_heap_size)}, ` +
-                        `total_physical_size=${convertToMB(heapStats.total_physical_size)}, ` +
-                        `total_available_size=${convertToMB(heapStats.total_available_size)}, ` +
-                        `heap_size_limit=${convertToMB(heapStats.heap_size_limit)}`
-                );
-            }
+            // if (this._configOptions.verboseOutput) {
+            //     this._console.info(
+            //         `Heap stats: ` +
+            //             `total_heap_size=${convertToMB(heapStats.total_heap_size)}, ` +
+            //             `used_heap_size=${convertToMB(heapStats.used_heap_size)}, ` +
+            //             `total_physical_size=${convertToMB(heapStats.total_physical_size)}, ` +
+            //             `total_available_size=${convertToMB(heapStats.total_available_size)}, ` +
+            //             `heap_size_limit=${convertToMB(heapStats.heap_size_limit)}`
+            //     );
+            // }
 
             // The type cache uses a Map, which has an absolute limit of 2^24 entries
             // before it will fail. If we cross the 95% mark, we'll empty the cache.
@@ -2366,14 +2408,14 @@ export class SplootProgram {
             // If we use more than 90% of the heap size limit, avoid a crash
             // by emptying the type cache.
             if (
-                typeCacheEntryCount > absoluteMaxCacheEntryCount ||
-                heapStats.used_heap_size > heapStats.heap_size_limit * 0.9
+                typeCacheEntryCount > absoluteMaxCacheEntryCount
+                // || heapStats.used_heap_size > heapStats.heap_size_limit * 0.9
             ) {
-                this._console.info(
-                    `Emptying type cache to avoid heap overflow. Used ${convertToMB(
-                        heapStats.used_heap_size
-                    )} out of ${convertToMB(heapStats.heap_size_limit)} (${typeCacheEntryCount} cache entries).`
-                );
+                // this._console.info(
+                //     `Emptying type cache to avoid heap overflow. Used ${convertToMB(
+                //         heapStats.used_heap_size
+                //     )} out of ${convertToMB(heapStats.heap_size_limit)} (${typeCacheEntryCount} cache entries).`
+                // );
                 this._createNewEvaluator();
                 this._discardCachedParseResults();
                 this._parsedFileCount = 0;
