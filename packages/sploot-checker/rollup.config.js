@@ -1,6 +1,8 @@
 import commonjs from '@rollup/plugin-commonjs';
+import json from '@rollup/plugin-json';
 import { nodeResolve } from '@rollup/plugin-node-resolve';
 import typescript from '@rollup/plugin-typescript';
+import dts from 'rollup-plugin-dts';
 import nodePolyfills from 'rollup-plugin-polyfill-node';
 
 const name = 'sploot-checker';
@@ -9,12 +11,15 @@ export default [
     {
         plugins: [
             typescript({
+                tsconfig: './tsconfig.json',
                 compilerOptions: {
                     rootDir: '../..',
+                    declaration: false,
                 },
                 sourceMap: true,
             }),
             commonjs(),
+            json(),
             nodePolyfills(),
             nodeResolve(),
         ],
@@ -33,22 +38,19 @@ export default [
         ],
     },
     {
+        input: './out/sploot-checker/src/index.d.ts',
+        output: [{ file: 'dist/sploot-checker.d.ts', format: 'es' }],
         plugins: [
-            typescript({
-                compilerOptions: {
-                    rootDir: '../..',
-                },
-                sourceMap: true,
-            }),
-            commonjs(),
-            nodePolyfills(),
             nodeResolve(),
+            dts({
+                compilerOptions: {
+                    rootDir: './dist/out',
+                    paths: {
+                        'pyright-internal/*': ['./out/pyright-internal/src/*'],
+                    },
+                },
+                respectExternal: true,
+            }),
         ],
-        input: 'src/index.ts',
-        output: {
-            file: `dist/${name}.d.ts`,
-            format: 'es',
-            sourcemap: true,
-        },
     },
 ];

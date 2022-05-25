@@ -1,6 +1,4 @@
 import { ImportResolver } from 'pyright-internal/analyzer/importResolver';
-import { Scope } from 'pyright-internal/analyzer/scope';
-import { TypeCategory } from 'pyright-internal/analyzer/types';
 import { ConfigOptions } from 'pyright-internal/common/configOptions';
 import { NoAccessHost } from 'pyright-internal/common/host';
 import { TextRange } from 'pyright-internal/common/textRange';
@@ -13,7 +11,11 @@ import { Token, TokenType } from 'pyright-internal/parser/tokenizerTypes';
 import { FakeFileSystem } from './fakeFileSystem';
 import { SplootProgram } from './splootProgram';
 
-function generateParsedFile() {
+export { Scope } from 'pyright-internal/analyzer/scope';
+export { TypeCategory } from 'pyright-internal/analyzer/types';
+export { ModuleNode, ParseNodeType } from 'pyright-internal/parser/parseNodes';
+
+export function generateParsedFile() {
     const rootNode: ModuleNode = {
         start: 0,
         length: 0,
@@ -80,69 +82,13 @@ function generateParsedFile() {
     return parseResults;
 }
 
-export async function initialise() {
-    // const output = new StandardConsole();
-    // const fileSystem = new PyrightFileSystem(createFromRealFileSystem(output, new ChokidarFileWatcherProvider(output)));
-
-    const fileSystem = new FakeFileSystem('http//localhost:5000/static');
-
-    // console.log(fileSystem.getModulePath());
-
-    // const mainPath = '/Users/katie/Projects/sploot/splootcode/pyright/packages/sploot-checker/main.py';
-    // const workspacePath = '/Users/katie/Projects/sploot/splootcode/pyright/packages/sploot-checker/';
-
-    const mainPath = '/fake/main.py';
+export function setupProgram(hostedTypeshedBasePath: string): SplootProgram {
+    const fileSystem = new FakeFileSystem(hostedTypeshedBasePath);
     const workspacePath = '/fake/';
 
     const host = new NoAccessHost();
     const configOptions = new ConfigOptions(workspacePath, 'strict');
-    // configOptions.ensureDefaultPythonPlatform(host, console);
-    // configOptions.ensureDefaultExtraPaths(fileSystem, true, []);
-    // configOptions.include.push(getFileSpec(fileSystem, process.cwd(), '.'));
-
     const importResolver = new ImportResolver(fileSystem, configOptions, host);
-
-    // const sourceFile = new SourceFile(fileSystem, mainPath, 'main', false, false, output);
-    // sourceFile.parse(configOptions, importResolver);
-    // const parseResults = sourceFile.getParseResults();
-
-    // console.log(parseResults);
-
-    // const splootSourceFile = new SourceFile(fileSystem, '/fake/main.py', 'main', false, false);
-    // splootSourceFile.overrideParseResults(generateParsedFile(), configOptions, importResolver);
-
     const program = new SplootProgram(importResolver, configOptions, console);
-    // program.addTrackedFile(mainPath);
-    program.addSplootFile(mainPath, generateParsedFile());
-    await program.parseRecursively(mainPath);
-    const sourceFile = program.getBoundSourceFile(mainPath);
-    console.log(sourceFile?.getParseResults());
-    // console.log(splootSourceFile?.getParseResults());
-    // console.log(sourceFile);
-    if (sourceFile) {
-        console.log(sourceFile.getDiagnostics(configOptions));
-        const parseResult = sourceFile.getParseResults();
-        const moduleNode = parseResult?.parseTree as ModuleNode;
-        // console.log(moduleNode.statements);
-        // const statement1 = moduleNode.statements[1] as StatementListNode;
-        // const printCall = statement1.statements[0] as CallNode;
-
-        // const typeResult = program.evaluator?.getTypeOfExpression(printCall);
-        // console.log(typeResult?.type);
-        const scope = moduleNode.scope as Scope;
-        const symbol = scope.symbolTable.get('x');
-        if (symbol) {
-            const t = program.evaluator?.getEffectiveTypeOfSymbol(symbol);
-            // console.log(t);
-            if (t?.category === TypeCategory.Class) {
-                console.log(t.details.fullName);
-            } else {
-                console.log('Failed to get type for x');
-            }
-        } else {
-            console.log('No symbol x!');
-        }
-    } else {
-        console.log('No source file??');
-    }
+    return program;
 }

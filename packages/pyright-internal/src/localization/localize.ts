@@ -8,8 +8,8 @@
  */
 
 import { fail } from '../common/debug';
-
 // import enUsStrings = require('./package.nls.en-us.json');
+import * as enUsStrings from './package.nls.en-us.json';
 // import deStrings = require('./package.nls.de.json');
 // import esStrings = require('./package.nls.es.json');
 // import frStrings = require('./package.nls.fr.json');
@@ -37,7 +37,7 @@ export class ParameterizedString<T extends {}> {
 const defaultLocale = 'en-us';
 const stringMapsByLocale: Map<string, any> = new Map([
     // ['de', deStrings],
-    // ['en-us', enUsStrings],
+    ['en-us', enUsStrings],
     // ['es', esStrings],
     // ['fr', frStrings],
     // ['ja', jaStrings],

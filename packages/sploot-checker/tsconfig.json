@@ -1,12 +1,17 @@
 {
     "extends": "../../tsconfig.json",
     "compilerOptions": {
-        "outDir": "./out",
+        "lib": [
+            "dom"
+        ],
+        "outDir": "out",
+        "declaration": true,
+        "preserveConstEnums": true,
         "paths": {
             "pyright-internal/*": [
                 "../pyright-internal/src/*"
             ]
-        }
+        },
     },
     
     "include": [

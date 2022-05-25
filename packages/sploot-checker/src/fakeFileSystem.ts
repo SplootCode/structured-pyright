@@ -9,6 +9,21 @@ import {
     TmpfileOptions,
 } from 'pyright-internal/common/fileSystem';
 
+import { typeshedDirEntries } from './fileSystemData';
+
+function file(name: string): Dirent {
+    return {
+        name: name,
+        isFile: () => true,
+        isDirectory: () => false,
+        isBlockDevice: () => false,
+        isCharacterDevice: () => false,
+        isSymbolicLink: () => false,
+        isFIFO: () => false,
+        isSocket: () => false,
+    };
+}
+
 function dir(name: string): Dirent {
     return {
         name: name,
@@ -51,14 +66,18 @@ export class FakeFileSystem implements FileSystem {
         console.log('readdirEntriesSync', path);
         if (path === '/fake') {
             return []; // [file('main.py')];
-        } else if (path === '/typeshed/typeshed-fallback') {
-            return [dir('stdlib'), dir('stubs')];
-        } else if (path === '/typeshed/typeshed-fallback/stdlib') {
-            // const res = readdirSync('./dist/typeshed-fallback/stdlib/', { withFileTypes: true });
-            return [];
-        } else if (path === '/typeshed/typeshed-fallback/stdlib/_typeshed') {
-            // return readdirSync('./dist/typeshed-fallback/stdlib/_typeshed', { withFileTypes: true });
-            return [];
+        } else if (path.startsWith('/typeshed/typeshed-fallback')) {
+            let newPath = path.substring('/typeshed/typeshed-fallback/'.length);
+            if (newPath.endsWith('/')) {
+                newPath = newPath.substring(0, newPath.length - 1);
+            }
+            console.log(newPath);
+            return typeshedDirEntries[newPath].map((entry) => {
+                if (entry.isDir) {
+                    return dir(entry.name);
+                }
+                return file(entry.name);
+            });
         }
 
         throw new Error('Method not implemented.');
@@ -126,16 +145,13 @@ export class FakeFileSystem implements FileSystem {
     }
     readFileText = async (path: string, encoding?: BufferEncoding) => {
         console.log('reading:', path);
-        const promise: Promise<string> = new Promise((resolve, reject) => {
-            setTimeout(() => {
-                if (path.startsWith('/typeshed/typeshed-fallback/')) {
-                    // const st = readFileSync('./dist' + path.slice(9), 'utf8');
-                    // resolve(st);
-                    resolve('');
-                }
-            }, 1000);
-        });
-        return promise;
+        if (path.startsWith('/typeshed/typeshed-fallback/')) {
+            const newPath = path.substring('/typeshed/typeshed-fallback/'.length);
+            const response = await fetch(this._hostedTypeshedBasePath + newPath);
+            const text = await response.text();
+            return text;
+        }
+        return '';
     };
     tmpdir(): string {
         throw new Error('Method not implemented.');
