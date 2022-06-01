@@ -887,8 +887,6 @@ export class SourceFile {
                 logState.suppress();
                 return false;
             }
-            console.log('Sync parse called on file not already parsed!');
-            console.log(this._filePath);
 
             const diagSink = new DiagnosticSink();
             let fileContents = this.getOpenFileContents();
@@ -1336,7 +1334,6 @@ export class SourceFile {
     }
 
     bind(configOptions: ConfigOptions, importLookup: ImportLookup, builtinsScope: Scope | undefined) {
-        console.log('bind', this._filePath);
         assert(!this.isParseRequired(), 'Bind called before parsing');
         assert(this.isBindingRequired(), 'Bind called unnecessarily');
         assert(!this._isBindingInProgress, 'Bind called while binding in progress');

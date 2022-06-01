@@ -995,7 +995,6 @@ export class StructuredEditorProgram {
         if (!this._isFileNeeded(fileToParse) || !fileToParse.sourceFile.isParseRequired()) {
             return;
         }
-        console.log('parse required', fileToParse.sourceFile.getFilePath());
 
         if (await fileToParse.sourceFile.parseAsync(this._configOptions, this._importResolver, content)) {
             this._parsedFileCount++;
@@ -1158,7 +1157,6 @@ export class StructuredEditorProgram {
     }
 
     private _checkTypes(fileToCheck: SourceFileInfo) {
-        console.log('_checkTypes', fileToCheck.sourceFile.getFilePath());
         return this._logTracker.log(`analyzing: ${fileToCheck.sourceFile.getFilePath()}`, (logState) => {
             // If the file isn't needed because it was eliminated from the
             // transitive closure or deleted, skip the file rather than wasting
