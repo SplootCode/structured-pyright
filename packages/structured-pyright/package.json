@@ -1,10 +1,10 @@
 {
-    "name": "sploot-checker",
-    "displayName": "Sploot Checker",
-    "main": "dist/sploot-checker.js",
-    "module": "dist/sploot-checker.mjs",
-    "typings": "dist/sploot-checker.d.ts",
-    "description": "Type checker for Sploot nodes in the Python language",
+    "name": "structured-pyright",
+    "displayName": "Structured Pyright",
+    "main": "dist/structured-pyright.js",
+    "module": "dist/structured-pyright.mjs",
+    "typings": "dist/structured-pyright.d.ts",
+    "description": "Type checker for structured editors using the Python AST",
     "version": "1.0.0",
     "license": "MIT",
     "author": {
