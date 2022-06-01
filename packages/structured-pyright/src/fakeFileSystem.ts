@@ -45,15 +45,13 @@ export class FakeFileSystem implements FileSystem {
     }
 
     existsSync(path: string): boolean {
-        console.log(path);
         switch (path) {
-            case '/fake/':
-            case '/fake/main.py':
+            case '/':
+            case '/main.py':
                 return true;
             case '/typeshed/typeshed-fallback':
                 return true;
         }
-        console.log('Path no exist', path);
         return false;
     }
     mkdirSync(path: string, options?: MkDirOptions): void {
@@ -63,15 +61,13 @@ export class FakeFileSystem implements FileSystem {
         throw new Error('Method not implemented.');
     }
     readdirEntriesSync(path: string): Dirent[] {
-        console.log('readdirEntriesSync', path);
-        if (path === '/fake') {
-            return []; // [file('main.py')];
+        if (path === '/') {
+            return [file('main.py')];
         } else if (path.startsWith('/typeshed/typeshed-fallback')) {
             let newPath = path.substring('/typeshed/typeshed-fallback/'.length);
             if (newPath.endsWith('/')) {
                 newPath = newPath.substring(0, newPath.length - 1);
             }
-            console.log(newPath);
             return typeshedDirEntries[newPath].map((entry) => {
                 if (entry.isDir) {
                     return dir(entry.name);
@@ -79,24 +75,21 @@ export class FakeFileSystem implements FileSystem {
                 return file(entry.name);
             });
         }
-
-        throw new Error('Method not implemented.');
+        throw new Error(`Unexpected readdirEntriesSync for path ${path}`);
     }
     readdirSync(path: string): string[] {
-        console.log('readdirSync', path);
         throw new Error('Method not implemented.');
     }
     readFileSync(path: string, encoding?: null): Buffer;
     readFileSync(path: string, encoding: BufferEncoding): string;
     readFileSync(path: string, encoding?: BufferEncoding | null): string | Buffer;
     readFileSync(path: any, encoding?: any): string | Buffer {
-        console.log('readFileSync', path);
+        // Choosing to return an empty VERSIONS file rather than editing
+        // the code to fetch it asynchronously like all the other typeshed files.
         if (path === '/typeshed/typeshed-fallback/stdlib/VERSIONS') {
-            // const st = readFileSync('./dist/typeshed-fallback/stdlib/VERSIONS', 'utf8');
-            // return st;
             return '';
         }
-        throw new Error('Method not implemented.');
+        throw new Error(`Unexpected readFileSync of path ${path}.`);
     }
     writeFileSync(path: string, data: string | Buffer, encoding: BufferEncoding | null): void {
         throw new Error('Method not implemented.');
@@ -114,14 +107,12 @@ export class FakeFileSystem implements FileSystem {
                 isSymbolicLink: () => false,
             };
         }
-        console.log('File no exist', path);
-        throw new Error('Method not implemented.');
+        throw new Error(`Unexpected statSync of path ${path}.`);
     }
     unlinkSync(path: string): void {
         throw new Error('Method not implemented.');
     }
     realpathSync(path: string): string {
-        console.log('realpathSync', path);
         throw new Error('Method not implemented.');
     }
     getModulePath(): string {
@@ -140,11 +131,9 @@ export class FakeFileSystem implements FileSystem {
         throw new Error('Method not implemented.');
     }
     readFile(path: string): Promise<Buffer> {
-        console.log('readFile', path);
         throw new Error('Method not implemented.');
     }
     readFileText = async (path: string, encoding?: BufferEncoding) => {
-        console.log('reading:', path);
         if (path.startsWith('/typeshed/typeshed-fallback/')) {
             const newPath = path.substring('/typeshed/typeshed-fallback/'.length);
             const response = await fetch(this._hostedTypeshedBasePath + newPath);
@@ -160,14 +149,13 @@ export class FakeFileSystem implements FileSystem {
         throw new Error('Method not implemented.');
     }
     realCasePath(path: string): string {
-        console.log('realCasePath', path);
-
         throw new Error('Method not implemented.');
     }
     isMappedFilePath(filepath: string): boolean {
         return false;
     }
     getOriginalFilePath(mappedFilePath: string): string {
+        // No file mapping
         return mappedFilePath;
     }
     getMappedFilePath(originalFilepath: string): string {

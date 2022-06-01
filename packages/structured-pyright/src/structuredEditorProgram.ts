@@ -9,7 +9,7 @@
  */
 
 // import { getHeapStatistics } from 'v8';
-import type { CancellationToken, CompletionItem, DocumentSymbol } from 'vscode-languageserver';
+import { CancellationToken, CompletionItem, DocumentSymbol } from 'vscode-languageserver';
 // import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 import {
     CallHierarchyIncomingCall,
@@ -66,7 +66,15 @@ import {
     convertTextRangeToRange,
 } from 'pyright-internal/common/positionUtils';
 import { computeCompletionSimilarity } from 'pyright-internal/common/stringUtils';
-import { DocumentRange, doesRangeContain, doRangesIntersect, Position, Range } from 'pyright-internal/common/textRange';
+import {
+    DocumentRange,
+    doesRangeContain,
+    doRangesIntersect,
+    Position,
+    Range,
+    TextRange,
+} from 'pyright-internal/common/textRange';
+import { TextRangeCollection } from 'pyright-internal/common/textRangeCollection';
 import { timingStats } from 'pyright-internal/common/timing';
 import {
     AutoImporter,
@@ -92,8 +100,10 @@ import { HoverResults } from 'pyright-internal/languageService/hoverProvider';
 import { ReferenceCallback, ReferencesResult } from 'pyright-internal/languageService/referencesProvider';
 import { RenameModuleProvider } from 'pyright-internal/languageService/renameModuleProvider';
 import { SignatureHelpResults } from 'pyright-internal/languageService/signatureHelpProvider';
-import { ParseNodeType } from 'pyright-internal/parser/parseNodes';
-import { ParseResults } from 'pyright-internal/parser/parser';
+import { ModuleNode, ParseNodeType } from 'pyright-internal/parser/parseNodes';
+import { ModuleImport, ParseResults } from 'pyright-internal/parser/parser';
+import { IgnoreComment } from 'pyright-internal/parser/tokenizer';
+import { Token } from 'pyright-internal/parser/tokenizerTypes';
 
 const _maxImportDepth = 256;
 
@@ -173,7 +183,7 @@ export interface OpenFileOptions {
 //  Referenced - part of the transitive closure
 //  Opened - temporarily opened in the editor
 //  Shadowed - implementation file that shadows a type stub file
-export class SplootProgram {
+export class StructuredEditorProgram {
     private _console: ConsoleInterface;
     private _sourceFileList: SourceFileInfo[] = [];
     private _sourceFileMap = new Map<string, SourceFileInfo>();
@@ -301,7 +311,26 @@ export class SplootProgram {
         return sourceFile;
     }
 
-    addSplootFile(filePath: string, parseResults: ParseResults): SourceFile {
+    addStructuredFile(filePath: string, moduleNode: ModuleNode, importedModules: ModuleImport[]): SourceFile {
+        const parseResults: ParseResults = {
+            text: '',
+            parseTree: moduleNode,
+            importedModules: importedModules,
+            futureImports: new Map(),
+            tokenizerOutput: {
+                tokens: new TextRangeCollection<Token>([]),
+                lines: new TextRangeCollection<TextRange>([]),
+                typeIgnoreAll: undefined,
+                typeIgnoreLines: new Map<number, IgnoreComment>(),
+                pyrightIgnoreLines: new Map<number, IgnoreComment>(),
+                predominantEndOfLineSequence: '\n',
+                predominantTabSequence: '    ',
+                predominantSingleQuoteCharacter: "'",
+            },
+            containsWildcardImport: false,
+            typingSymbolAliases: new Map(),
+        };
+
         let sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
         if (sourceFileInfo) {
             sourceFileInfo.isTracked = true;
@@ -340,6 +369,38 @@ export class SplootProgram {
         this._parsedFileCount++;
         this._updateSourceFileImports(sourceFileInfo, this._configOptions);
 
+        return sourceFile;
+    }
+
+    updateStructuredFile(filePath: string, moduleNode: ModuleNode, importedModules: ModuleImport[]): SourceFile {
+        const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
+        if (!sourceFileInfo) {
+            return this.addStructuredFile(filePath, moduleNode, importedModules);
+        }
+
+        const sourceFile = sourceFileInfo.sourceFile;
+        const parseResults: ParseResults = {
+            text: '',
+            parseTree: moduleNode,
+            importedModules: importedModules,
+            futureImports: new Map(),
+            tokenizerOutput: {
+                tokens: new TextRangeCollection<Token>([]),
+                lines: new TextRangeCollection<TextRange>([]),
+                typeIgnoreAll: undefined,
+                typeIgnoreLines: new Map<number, IgnoreComment>(),
+                pyrightIgnoreLines: new Map<number, IgnoreComment>(),
+                predominantEndOfLineSequence: '\n',
+                predominantTabSequence: '    ',
+                predominantSingleQuoteCharacter: "'",
+            },
+            containsWildcardImport: false,
+            typingSymbolAliases: new Map(),
+        };
+
+        sourceFile.overrideParseResults(parseResults, this._configOptions, this._importResolver);
+        this._updateSourceFileImports(sourceFileInfo, this._configOptions);
+        this._createNewEvaluator();
         return sourceFile;
     }
 
@@ -539,54 +600,54 @@ export class SplootProgram {
     // whether the method needs to be called again to complete the
     // analysis. In interactive mode, the timeout is always limited
     // to the smaller value to maintain responsiveness.
-    // analyze(maxTime?: MaxAnalysisTime, token: CancellationToken = CancellationToken.None): boolean {
-    //     return this._runEvaluatorWithCancellationToken(token, () => {
-    //         const elapsedTime = new Duration();
+    analyze(maxTime?: MaxAnalysisTime, token: CancellationToken = CancellationToken.None): boolean {
+        return this._runEvaluatorWithCancellationToken(token, () => {
+            // const elapsedTime = new Duration();
 
-    //         const openFiles = this._sourceFileList.filter(
-    //             (sf) => sf.isOpenByClient && sf.sourceFile.isCheckingRequired()
-    //         );
+            const openFiles = this._sourceFileList.filter(
+                (sf) => sf.isOpenByClient && sf.sourceFile.isCheckingRequired()
+            );
 
-    //         if (openFiles.length > 0) {
-    //             const effectiveMaxTime = maxTime ? maxTime.openFilesTimeInMs : Number.MAX_VALUE;
+            if (openFiles.length > 0) {
+                // const effectiveMaxTime = maxTime ? maxTime.openFilesTimeInMs : Number.MAX_VALUE;
 
-    //             // Check the open files.
-    //             for (const sourceFileInfo of openFiles) {
-    //                 if (this._checkTypes(sourceFileInfo)) {
-    //                     if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
-    //                         return true;
-    //                     }
-    //                 }
-    //             }
+                // Check the open files.
+                for (const sourceFileInfo of openFiles) {
+                    if (this._checkTypes(sourceFileInfo)) {
+                        // if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
+                        //     return true;
+                        // }
+                    }
+                }
 
-    //             // If the caller specified a maxTime, return at this point
-    //             // since we've finalized all open files. We want to get
-    //             // the results to the user as quickly as possible.
-    //             if (maxTime !== undefined) {
-    //                 return true;
-    //             }
-    //         }
+                // If the caller specified a maxTime, return at this point
+                // since we've finalized all open files. We want to get
+                // the results to the user as quickly as possible.
+                if (maxTime !== undefined) {
+                    return true;
+                }
+            }
 
-    //         if (!this._configOptions.checkOnlyOpenFiles) {
-    //             const effectiveMaxTime = maxTime ? maxTime.noOpenFilesTimeInMs : Number.MAX_VALUE;
+            if (!this._configOptions.checkOnlyOpenFiles) {
+                // const effectiveMaxTime = maxTime ? maxTime.noOpenFilesTimeInMs : Number.MAX_VALUE;
 
-    //             // Now do type parsing and analysis of the remaining.
-    //             for (const sourceFileInfo of this._sourceFileList) {
-    //                 if (!this._isUserCode(sourceFileInfo)) {
-    //                     continue;
-    //                 }
+                // Now do type parsing and analysis of the remaining.
+                for (const sourceFileInfo of this._sourceFileList) {
+                    if (!this._isUserCode(sourceFileInfo)) {
+                        continue;
+                    }
 
-    //                 if (this._checkTypes(sourceFileInfo)) {
-    //                     if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
-    //                         return true;
-    //                     }
-    //                 }
-    //             }
-    //         }
+                    if (this._checkTypes(sourceFileInfo)) {
+                        // if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
+                        //     return true;
+                        // }
+                    }
+                }
+            }
 
-    //         return false;
-    //     });
-    // }
+            return false;
+        });
+    }
 
     indexWorkspace(callback: (path: string, results: IndexResults) => void, token: CancellationToken): number {
         if (!this._configOptions.indexing) {
@@ -872,7 +933,7 @@ export class SplootProgram {
         this._evaluator = createTypeEvaluatorWithTracker(
             this._lookUpImport,
             {
-                printTypeFlags: SplootProgram._getPrintTypeFlags(this._configOptions),
+                printTypeFlags: StructuredEditorProgram._getPrintTypeFlags(this._configOptions),
                 logCalls: this._configOptions.logTypeEvaluationTime,
                 minimumLoggingThreshold: this._configOptions.typeEvaluationTimeThreshold,
                 analyzeUnannotatedFunctions: this._configOptions.analyzeUnannotatedFunctions,
@@ -908,7 +969,6 @@ export class SplootProgram {
         closureMap: Map<string, SourceFileInfo>,
         recursionCount: number
     ): Promise<void> {
-        console.log('parse recursively', file.sourceFile.getFilePath());
         await this._parseFileAsync(file);
 
         // If the import chain is too long, emit an error. Otherwise we
@@ -935,6 +995,7 @@ export class SplootProgram {
         if (!this._isFileNeeded(fileToParse) || !fileToParse.sourceFile.isParseRequired()) {
             return;
         }
+        console.log('parse required', fileToParse.sourceFile.getFilePath());
 
         if (await fileToParse.sourceFile.parseAsync(this._configOptions, this._importResolver, content)) {
             this._parsedFileCount++;
@@ -1097,6 +1158,7 @@ export class SplootProgram {
     }
 
     private _checkTypes(fileToCheck: SourceFileInfo) {
+        console.log('_checkTypes', fileToCheck.sourceFile.getFilePath());
         return this._logTracker.log(`analyzing: ${fileToCheck.sourceFile.getFilePath()}`, (logState) => {
             // If the file isn't needed because it was eliminated from the
             // transitive closure or deleted, skip the file rather than wasting

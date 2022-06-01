@@ -5,7 +5,7 @@ import typescript from '@rollup/plugin-typescript';
 import dts from 'rollup-plugin-dts';
 import nodePolyfills from 'rollup-plugin-polyfill-node';
 
-const name = 'sploot-checker';
+const name = 'structured-pyright';
 
 export default [
     {
@@ -38,8 +38,8 @@ export default [
         ],
     },
     {
-        input: './out/sploot-checker/src/index.d.ts',
-        output: [{ file: 'dist/sploot-checker.d.ts', format: 'es' }],
+        input: './out/structured-pyright/src/index.d.ts',
+        output: [{ file: `dist/${name}.d.ts`, format: 'es' }],
         plugins: [
             nodeResolve(),
             dts({
