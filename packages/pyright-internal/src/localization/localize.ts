@@ -8,15 +8,15 @@
  */
 
 import { fail } from '../common/debug';
-
-import enUsStrings = require('./package.nls.en-us.json');
-import deStrings = require('./package.nls.de.json');
-import esStrings = require('./package.nls.es.json');
-import frStrings = require('./package.nls.fr.json');
-import jaStrings = require('./package.nls.ja.json');
-import ruStrings = require('./package.nls.ru.json');
-import zhCnStrings = require('./package.nls.zh-cn.json');
-import zhTwStrings = require('./package.nls.zh-tw.json');
+// import enUsStrings = require('./package.nls.en-us.json');
+import * as enUsStrings from './package.nls.en-us.json';
+// import deStrings = require('./package.nls.de.json');
+// import esStrings = require('./package.nls.es.json');
+// import frStrings = require('./package.nls.fr.json');
+// import jaStrings = require('./package.nls.ja.json');
+// import ruStrings = require('./package.nls.ru.json');
+// import zhCnStrings = require('./package.nls.zh-cn.json');
+// import zhTwStrings = require('./package.nls.zh-tw.json');
 
 export class ParameterizedString<T extends {}> {
     constructor(private _formatString: string) {}
@@ -36,14 +36,14 @@ export class ParameterizedString<T extends {}> {
 
 const defaultLocale = 'en-us';
 const stringMapsByLocale: Map<string, any> = new Map([
-    ['de', deStrings],
+    // ['de', deStrings],
     ['en-us', enUsStrings],
-    ['es', esStrings],
-    ['fr', frStrings],
-    ['ja', jaStrings],
-    ['ru', ruStrings],
-    ['zh-cn', zhCnStrings],
-    ['zh-tw', zhTwStrings],
+    // ['es', esStrings],
+    // ['fr', frStrings],
+    // ['ja', jaStrings],
+    // ['ru', ruStrings],
+    // ['zh-cn', zhCnStrings],
+    // ['zh-tw', zhTwStrings],
 ]);
 
 type StringLookupMap = { [key: string]: string | StringLookupMap };

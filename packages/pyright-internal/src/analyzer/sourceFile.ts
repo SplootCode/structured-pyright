@@ -7,16 +7,16 @@
  * Class that represents a single python source file.
  */
 
-import {
+import type {
     CancellationToken,
     CompletionItem,
     DocumentHighlight,
     DocumentSymbol,
     MarkupKind,
 } from 'vscode-languageserver';
-import { TextDocument, TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
-import { isMainThread } from 'worker_threads';
+import type { TextDocument, TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 
+// import { isMainThread } from 'worker_threads';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
 import { OperationCanceledException } from '../common/cancellationUtils';
 import { ConfigOptions, ExecutionEnvironment, getBasicDiagnosticRuleSet } from '../common/configOptions';
@@ -41,7 +41,7 @@ import { DefinitionFilter, DefinitionProvider } from '../languageService/definit
 import { DocumentHighlightProvider } from '../languageService/documentHighlightProvider';
 import { DocumentSymbolProvider, IndexOptions, IndexResults } from '../languageService/documentSymbolProvider';
 import { HoverProvider, HoverResults } from '../languageService/hoverProvider';
-import { performQuickAction } from '../languageService/quickActions';
+// import { performQuickAction } from '../languageService/quickActions';
 import { ReferenceCallback, ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
 import { SignatureHelpProvider, SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { Localizer } from '../localization/localize';
@@ -227,7 +227,7 @@ export class SourceFile {
         }
 
         // 'FG' or 'BG' based on current thread.
-        this._logTracker = logTracker ?? new LogTracker(console, isMainThread ? 'FG' : 'BG');
+        this._logTracker = logTracker ?? new LogTracker(console, 'FG');
         this._ipythonMode = ipythonMode;
     }
 
@@ -579,6 +579,32 @@ export class SourceFile {
         return this._clientDocument?.getText();
     }
 
+    async getFileContentAsync(): Promise<string | undefined> {
+        // Get current buffer content if the file is opened.
+        const openFileContent = this.getOpenFileContents();
+        if (openFileContent) {
+            return openFileContent;
+        }
+
+        // Otherwise, get content from file system.
+        try {
+            // Check the file's length before attempting to read its full contents.
+            // const fileStat = this.fileSystem.statSync(this._filePath);
+            // if (fileStat.size > _maxSourceFileSize) {
+            //     this._console.error(
+            //         `File length of "${this._filePath}" is ${fileStat.size} ` +
+            //             `which exceeds the maximum supported file size of ${_maxSourceFileSize}`
+            //     );
+            //     throw new Error('File larger than max');
+            // }
+
+            return await this.fileSystem.readFileText(this._filePath, 'utf8');
+        } catch (error) {
+            console.warn(error);
+            return undefined;
+        }
+    }
+
     getFileContent(): string | undefined {
         // Get current buffer content if the file is opened.
         const openFileContent = this.getOpenFileContents();
@@ -605,26 +631,23 @@ export class SourceFile {
     }
 
     setClientVersion(version: number | null, contents: TextDocumentContentChangeEvent[]): void {
-        if (version === null) {
-            this._clientDocument = undefined;
-        } else {
-            if (!this._clientDocument) {
-                this._clientDocument = TextDocument.create(this._filePath, 'python', version, '');
-            }
-            this._clientDocument = TextDocument.update(this._clientDocument, contents, version);
-
-            const fileContents = this._clientDocument.getText();
-            const contentsHash = StringUtils.hashString(fileContents);
-
-            // Have the contents of the file changed?
-            if (fileContents.length !== this._lastFileContentLength || contentsHash !== this._lastFileContentHash) {
-                this.markDirty();
-            }
-
-            this._lastFileContentLength = fileContents.length;
-            this._lastFileContentHash = contentsHash;
-            this._isFileDeleted = false;
-        }
+        //     if (version === null) {
+        //         this._clientDocument = undefined;
+        //     } else {
+        //         if (!this._clientDocument) {
+        //             this._clientDocument = TextDocument.create(this._filePath, 'python', version, '');
+        //         }
+        //         this._clientDocument = TextDocument.update(this._clientDocument, contents, version);
+        //         const fileContents = this._clientDocument.getText();
+        //         const contentsHash = StringUtils.hashString(fileContents);
+        //         // Have the contents of the file changed?
+        //         if (fileContents.length !== this._lastFileContentLength || contentsHash !== this._lastFileContentHash) {
+        //             this.markDirty();
+        //         }
+        //         this._lastFileContentLength = fileContents.length;
+        //         this._lastFileContentHash = contentsHash;
+        //         this._isFileDeleted = false;
+        //     }
     }
 
     prepareForClose() {
@@ -703,6 +726,155 @@ export class SourceFile {
 
     setHitMaxImportDepth(maxImportDepth: number) {
         this._hitMaxImportDepth = maxImportDepth;
+    }
+
+    overrideParseResults(parseResults: ParseResults, configOptions: ConfigOptions, importResolver: ImportResolver) {
+        const diagSink = new DiagnosticSink();
+        const execEnvironment = configOptions.findExecEnvironment(this._filePath);
+
+        this._parseResults = parseResults;
+        const importResult = this._resolveImports(importResolver, parseResults.importedModules, execEnvironment);
+
+        this._imports = importResult.imports;
+        this._builtinsImport = importResult.builtinsImportResult;
+        this._ipythonDisplayImport = importResult.ipythonDisplayImportResult;
+
+        this._parseDiagnostics = diagSink.fetchAndClear();
+
+        this._analyzedFileContentsVersion = this._fileContentsVersion;
+        this._indexingNeeded = true;
+        this._isBindingNeeded = true;
+        this._isCheckingNeeded = true;
+        this._parseTreeNeedsCleaning = false;
+        this._hitMaxImportDepth = undefined;
+        this._diagnosticVersion++;
+    }
+
+    async parseAsync(configOptions: ConfigOptions, importResolver: ImportResolver, content?: string) {
+        if (!this.isParseRequired()) {
+            return false;
+        }
+        const diagSink = new DiagnosticSink();
+        let fileContents = this.getOpenFileContents();
+        if (fileContents === undefined) {
+            try {
+                // Read the file's contents.
+                fileContents = content ?? (await this.getFileContentAsync());
+                if (fileContents === undefined) {
+                    throw new Error("Can't get file content");
+                }
+
+                // Remember the length and hash for comparison purposes.
+                this._lastFileContentLength = fileContents.length;
+                this._lastFileContentHash = StringUtils.hashString(fileContents);
+            } catch (error) {
+                diagSink.addError(`Source file could not be read`, getEmptyRange());
+                fileContents = '';
+
+                if (!this.fileSystem.existsSync(this._filePath)) {
+                    this._isFileDeleted = true;
+                }
+            }
+        }
+
+        // Use the configuration options to determine the environment in which
+        // this source file will be executed.
+        const execEnvironment = configOptions.findExecEnvironment(this._filePath);
+
+        const parseOptions = new ParseOptions();
+        parseOptions.ipythonMode = this._ipythonMode;
+        if (this._filePath.endsWith('pyi')) {
+            parseOptions.isStubFile = true;
+        }
+        parseOptions.pythonVersion = execEnvironment.pythonVersion;
+        parseOptions.skipFunctionAndClassBody = configOptions.indexGenerationMode ?? false;
+
+        try {
+            // Parse the token stream, building the abstract syntax tree.
+            const parser = new Parser();
+            const parseResults = parser.parseSourceFile(fileContents!, parseOptions, diagSink);
+            assert(parseResults !== undefined && parseResults.tokenizerOutput !== undefined);
+            this._parseResults = parseResults;
+            this._typeIgnoreLines = this._parseResults.tokenizerOutput.typeIgnoreLines;
+            this._typeIgnoreAll = this._parseResults.tokenizerOutput.typeIgnoreAll;
+            this._pyrightIgnoreLines = this._parseResults.tokenizerOutput.pyrightIgnoreLines;
+
+            // Resolve imports.
+            timingStats.resolveImportsTime.timeOperation(() => {
+                const importResult = this._resolveImports(
+                    importResolver,
+                    parseResults.importedModules,
+                    execEnvironment
+                );
+
+                this._imports = importResult.imports;
+                this._builtinsImport = importResult.builtinsImportResult;
+                this._ipythonDisplayImport = importResult.ipythonDisplayImportResult;
+
+                this._parseDiagnostics = diagSink.fetchAndClear();
+            });
+
+            // Is this file in a "strict" path?
+            const useStrict =
+                configOptions.strict.find((strictFileSpec) => strictFileSpec.regExp.test(this._filePath)) !== undefined;
+
+            this._diagnosticRuleSet = CommentUtils.getFileLevelDirectives(
+                this._parseResults.tokenizerOutput.tokens,
+                configOptions.diagnosticRuleSet,
+                useStrict
+            );
+        } catch (e: any) {
+            const message: string =
+                (e.stack ? e.stack.toString() : undefined) ||
+                (typeof e.message === 'string' ? e.message : undefined) ||
+                JSON.stringify(e);
+            this._console.error(
+                Localizer.Diagnostic.internalParseError().format({ file: this.getFilePath(), message })
+            );
+
+            // Create dummy parse results.
+            this._parseResults = {
+                text: '',
+                parseTree: ModuleNode.create({ start: 0, length: 0 }),
+                importedModules: [],
+                futureImports: new Map<string, boolean>(),
+                tokenizerOutput: {
+                    tokens: new TextRangeCollection<Token>([]),
+                    lines: new TextRangeCollection<TextRange>([]),
+                    typeIgnoreAll: undefined,
+                    typeIgnoreLines: new Map<number, IgnoreComment>(),
+                    pyrightIgnoreLines: new Map<number, IgnoreComment>(),
+                    predominantEndOfLineSequence: '\n',
+                    predominantTabSequence: '    ',
+                    predominantSingleQuoteCharacter: "'",
+                },
+                containsWildcardImport: false,
+                typingSymbolAliases: new Map<string, string>(),
+            };
+            this._imports = undefined;
+            this._builtinsImport = undefined;
+            this._ipythonDisplayImport = undefined;
+
+            const diagSink = new DiagnosticSink();
+            diagSink.addError(
+                Localizer.Diagnostic.internalParseError().format({ file: this.getFilePath(), message }),
+                getEmptyRange()
+            );
+            this._parseDiagnostics = diagSink.fetchAndClear();
+
+            // Do not rethrow the exception, swallow it here. Callers are not
+            // prepared to handle an exception.
+        }
+
+        this._analyzedFileContentsVersion = this._fileContentsVersion;
+        this._indexingNeeded = true;
+        this._isBindingNeeded = true;
+        this._isCheckingNeeded = true;
+        this._parseTreeNeedsCleaning = false;
+        this._hitMaxImportDepth = undefined;
+        this._diagnosticVersion++;
+
+        return true;
     }
 
     // Parse the file and update the state. Callers should wait for completion
@@ -1157,7 +1329,8 @@ export class SourceFile {
             return undefined;
         }
 
-        return performQuickAction(command, args, this._parseResults, token);
+        // return performQuickAction(command, args, this._parseResults, token);
+        return undefined;
     }
 
     bind(configOptions: ConfigOptions, importLookup: ImportLookup, builtinsScope: Scope | undefined) {
