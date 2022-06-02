@@ -4,11 +4,15 @@
     "main": "dist/structured-pyright.js",
     "module": "dist/structured-pyright.mjs",
     "typings": "dist/structured-pyright.d.ts",
-    "description": "Type checker for structured editors using the Python AST",
-    "version": "1.0.0",
+    "description": "For of pyright to work for structured editors using the Python AST",
+    "version": "0.1.1",
     "license": "MIT",
     "author": {
         "name": "Katie Bell"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/katharosada/structured-pyright"
     },
     "scripts": {
         "build": "tsc && rollup -c && npx copyfiles -u 3 '../pyright-internal/typeshed-fallback/stdlib/**' dist/static/typeshed",
