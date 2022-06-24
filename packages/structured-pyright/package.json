@@ -5,7 +5,7 @@
     "module": "dist/structured-pyright.mjs",
     "typings": "dist/structured-pyright.d.ts",
     "description": "Type checker for structured editors using the Python AST",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "license": "MIT",
     "author": {
         "name": "Katie Bell"
@@ -22,6 +22,7 @@
         "vscode-languageclient": "8.0.0-next.14",
         "vscode-languageserver": "8.0.0-next.10",
         "vscode-languageserver-protocol": "3.17.0-next.16",
+        "vscode-languageserver-textdocument": "^1.0.5",
         "vscode-uri": "^3.0.3"
     },
     "devDependencies": {

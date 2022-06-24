@@ -6,6 +6,7 @@ import { FakeFileSystem } from './fakeFileSystem';
 import { StructuredEditorProgram } from './structuredEditorProgram';
 
 export { StructuredEditorProgram } from './structuredEditorProgram';
+export { ParseTreeWalker } from 'pyright-internal/analyzer/parseTreeWalker';
 export { Scope } from 'pyright-internal/analyzer/scope';
 export { TypeResult } from 'pyright-internal/analyzer/typeEvaluatorTypes';
 export { EvaluatorFlags } from 'pyright-internal/analyzer/typeEvaluatorTypes';
