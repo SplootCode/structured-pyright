@@ -77,7 +77,9 @@ const WhitespaceRegExp = /\s/g;
 const DoubleTickRegExp = /``/g;
 const TildeRegExp = /~/g;
 const PlusRegExp = /\+/g;
-const UnescapedMarkdownCharsRegExp = /(?<!\\)([_*~[\]])/g;
+// Negative lookbehind not supported in Safari
+// const UnescapedMarkdownCharsRegExp = /(?<!\\)([_*~[\]])/g;
+const UnescapedMarkdownCharsRegExp = /([_*~[\]])/g;
 const linkRegExp = /(\[.*\]\(.*\))/g;
 
 const HtmlEscapes: RegExpReplacement[] = [
