@@ -39,20 +39,20 @@ function dir(name: string): Dirent {
 
 export class FakeFileSystem implements FileSystem {
     private _hostedTypeshedBasePath: string;
+    private _knownStructuredFilePaths: Set<string>;
 
     constructor(hostedTypeshedBasePath: string) {
         this._hostedTypeshedBasePath = hostedTypeshedBasePath;
+        this._knownStructuredFilePaths = new Set();
     }
 
     existsSync(path: string): boolean {
         switch (path) {
             case '/':
-            case '/main.py':
-                return true;
             case '/typeshed/typeshed-fallback':
                 return true;
         }
-        return false;
+        return this._knownStructuredFilePaths.has(path);
     }
     mkdirSync(path: string, options?: MkDirOptions): void {
         throw new Error('Method not implemented.');
@@ -62,7 +62,16 @@ export class FakeFileSystem implements FileSystem {
     }
     readdirEntriesSync(path: string): Dirent[] {
         if (path === '/') {
-            return [file('main.py')];
+            return [...this._knownStructuredFilePaths]
+                .filter((key) => {
+                    if (key.startsWith(path)) {
+                        return key.substring(path.length).indexOf('/') === -1;
+                    }
+                    return false;
+                })
+                .map((key) => {
+                    return file(key.substring(path.length));
+                });
         } else if (path.startsWith('/typeshed/typeshed-fallback')) {
             let newPath = path.substring('/typeshed/typeshed-fallback/'.length);
             if (newPath.endsWith('/')) {
@@ -92,7 +101,7 @@ export class FakeFileSystem implements FileSystem {
         throw new Error(`Unexpected readFileSync of path ${path}.`);
     }
     writeFileSync(path: string, data: string | Buffer, encoding: BufferEncoding | null): void {
-        throw new Error('Method not implemented.');
+        this._knownStructuredFilePaths.add(path);
     }
     statSync(path: string): Stats {
         if (path === '/typeshed/typeshed-fallback/stdlib/VERSIONS') {

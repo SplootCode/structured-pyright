@@ -5,13 +5,15 @@
     "module": "dist/structured-pyright.mjs",
     "typings": "dist/structured-pyright.d.ts",
     "description": "Type checker for structured editors using the Python AST",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "license": "MIT",
     "author": {
         "name": "Katie Bell"
     },
     "scripts": {
-        "build": "tsc && rollup -c && npx copyfiles -u 3 '../pyright-internal/typeshed-fallback/stdlib/**' dist/static/typeshed",
+        "copy_stdlib": "npx copyfiles -u 3 '../pyright-internal/typeshed-fallback/stdlib/**' dist/static/typeshed",
+        "copy_stubs": "npx copyfiles -u 3 '../pyright-internal/typeshed-fallback/stubs/requests/**' dist/static/typeshed",
+        "build": "tsc && rollup -c && npm run copy_stubs && npm run copy_stdlib",
         "clean": "shx rm -rf ./dist ./out README.md LICENSE.txt",
         "prepack": "npm run clean && shx cp ../../README.md . && shx cp ../../LICENSE.txt . && npm run build",
         "watch": "rollup -c -w"

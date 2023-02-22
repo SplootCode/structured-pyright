@@ -5,7 +5,13 @@ BASE_PATH = '../pyright-internal/typeshed-fallback'
 
 
 dirlisting = {
-  '': [{'name': 'stdlib', 'isFile': False, 'isDir': True}]
+  '': [
+        {'name': 'stdlib', 'isFile': False, 'isDir': True},
+        {'name': 'stubs', 'isFile': False, 'isDir': True}
+      ],
+  'stubs': [
+        {'name': 'requests', 'isFile': False, 'isDir': True}
+      ],
 }
 
 def scan(folderPath):
@@ -27,6 +33,7 @@ def scan(folderPath):
       scan(os.path.join(folderPath, dirEntry.name))
 
 scan('stdlib')
+scan('stubs/requests')
 
 preamble = '''
 type DirListing = { [key: string]: { name: string; isFile: boolean; isDir: boolean }[] };
