@@ -1,7 +1,11 @@
 type DirListing = { [key: string]: { name: string; isFile: boolean; isDir: boolean }[] };
 
 export const typeshedDirEntries: DirListing = {
-    '': [{ name: 'stdlib', isFile: false, isDir: true }],
+    '': [
+        { name: 'stdlib', isFile: false, isDir: true },
+        { name: 'stubs', isFile: false, isDir: true },
+    ],
+    stubs: [{ name: 'requests', isFile: false, isDir: true }],
     stdlib: [
         { name: 'contextvars.pyi', isFile: true, isDir: false },
         { name: 'nturl2path.pyi', isFile: true, isDir: false },
@@ -614,4 +618,25 @@ export const typeshedDirEntries: DirListing = {
         { name: 'errors.pyi', isFile: true, isDir: false },
         { name: 'model.pyi', isFile: true, isDir: false },
     ],
+    'stubs/requests': [
+        { name: 'requests', isFile: false, isDir: true },
+        { name: 'METADATA.toml', isFile: true, isDir: false },
+    ],
+    'stubs/requests/requests': [
+        { name: 'structures.pyi', isFile: true, isDir: false },
+        { name: '__init__.pyi', isFile: true, isDir: false },
+        { name: 'exceptions.pyi', isFile: true, isDir: false },
+        { name: 'compat.pyi', isFile: true, isDir: false },
+        { name: 'api.pyi', isFile: true, isDir: false },
+        { name: 'utils.pyi', isFile: true, isDir: false },
+        { name: 'cookies.pyi', isFile: true, isDir: false },
+        { name: 'sessions.pyi', isFile: true, isDir: false },
+        { name: 'auth.pyi', isFile: true, isDir: false },
+        { name: 'models.pyi', isFile: true, isDir: false },
+        { name: 'packages', isFile: false, isDir: true },
+        { name: 'hooks.pyi', isFile: true, isDir: false },
+        { name: 'status_codes.pyi', isFile: true, isDir: false },
+        { name: 'adapters.pyi', isFile: true, isDir: false },
+    ],
+    'stubs/requests/requests/packages': [{ name: '__init__.pyi', isFile: true, isDir: false }],
 };

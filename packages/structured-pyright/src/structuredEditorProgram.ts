@@ -312,6 +312,9 @@ export class StructuredEditorProgram {
     }
 
     addStructuredFile(filePath: string, moduleNode: ModuleNode, importedModules: ModuleImport[]): SourceFile {
+        // Hack to tag that the file exists in the fake filesystem.
+        this._fs.writeFileSync(filePath, '', null);
+
         const parseResults: ParseResults = {
             text: '',
             parseTree: moduleNode,
