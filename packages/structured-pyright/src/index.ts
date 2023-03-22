@@ -6,7 +6,6 @@ import { NoAccessHost } from 'pyright-internal/common/host';
 import { FakeFileSystem } from './fakeFileSystem';
 import { StructuredEditorProgram } from './structuredEditorProgram';
 
-// export { FakeFileSystem } from './fakeFileSystem';
 export { typeshedDirEntries } from './fileSystemData';
 export { StructuredEditorProgram } from './structuredEditorProgram';
 export { resolveAliasDeclaration, ResolvedAliasInfo } from 'pyright-internal/analyzer/aliasDeclarationUtils';

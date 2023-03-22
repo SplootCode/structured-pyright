@@ -84,7 +84,6 @@ export class FakeFileSystem implements FileSystem {
                 return file(entry.name);
             });
         }
-
         throw new Error(`Unexpected readdirEntriesSync for path ${path}`);
     }
     readdirSync(path: string): string[] {
