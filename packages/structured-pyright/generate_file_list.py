@@ -1,8 +1,7 @@
 import os
 import json
 
-BASE_PATH = '../pyright-internal/typeshed-fallback'
-
+TYPESHED_BASE_PATH = '../pyright-internal/typeshed-fallback'
 
 dirlisting = {
   '': [
@@ -10,13 +9,14 @@ dirlisting = {
         {'name': 'stubs', 'isFile': False, 'isDir': True}
       ],
   'stubs': [
-        {'name': 'requests', 'isFile': False, 'isDir': True}
+        {'name': 'requests', 'isFile': False, 'isDir': True},
+        {'name': 'pandas', 'isFile': False, 'isDir': True}
       ],
 }
 
-def scan(folderPath):
+def scan(basePath, folderPath):
   dirlisting[folderPath] = []
-  entries = os.scandir(os.path.join(BASE_PATH, folderPath))
+  entries = os.scandir(os.path.join(basePath, folderPath))
   for dirEntry in entries:
     if dirEntry.is_file():
       dirlisting[folderPath].append({
@@ -30,10 +30,11 @@ def scan(folderPath):
         'isFile': False,
         'isDir': True,
       })
-      scan(os.path.join(folderPath, dirEntry.name))
+      scan(basePath, os.path.join(folderPath, dirEntry.name))
 
-scan('stdlib')
-scan('stubs/requests')
+scan(TYPESHED_BASE_PATH, 'stdlib')
+scan(TYPESHED_BASE_PATH, 'stubs/requests')
+scan(TYPESHED_BASE_PATH, 'stubs/pandas')
 
 preamble = '''
 type DirListing = { [key: string]: { name: string; isFile: boolean; isDir: boolean }[] };
