@@ -31,6 +31,7 @@ export { ModuleImport, ParseResults } from 'pyright-internal/parser/parser';
 export * from 'pyright-internal/parser/tokenizerTypes';
 export { Token, TokenType } from 'pyright-internal/parser/tokenizerTypes';
 
+// TODO(harrison): remove this entrypoint once we have pyright fully running in the worker
 export function createStructuredProgram(hostedTypeshedBasePath: string): StructuredEditorProgram {
     const fileSystem = new FakeFileSystem(hostedTypeshedBasePath);
     const workspacePath = '/';
