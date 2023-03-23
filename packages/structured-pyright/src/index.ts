@@ -13,6 +13,7 @@ export * from 'pyright-internal/analyzer/declaration';
 export { DeclarationType } from 'pyright-internal/analyzer/declaration';
 export { ParseTreeWalker } from 'pyright-internal/analyzer/parseTreeWalker';
 export { Scope } from 'pyright-internal/analyzer/scope';
+export { SourceFile } from 'pyright-internal/analyzer/sourceFile';
 export { Symbol, SymbolTable } from 'pyright-internal/analyzer/symbol';
 export { TypeResult } from 'pyright-internal/analyzer/typeEvaluatorTypes';
 export { CallSignatureInfo, EvaluatorFlags } from 'pyright-internal/analyzer/typeEvaluatorTypes';
