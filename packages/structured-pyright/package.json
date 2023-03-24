@@ -5,7 +5,7 @@
     "module": "dist/structured-pyright.mjs",
     "typings": "dist/structured-pyright.d.ts",
     "description": "Type checker for structured editors using the Python AST",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "license": "MIT",
     "author": {
         "name": "Katie Bell"
