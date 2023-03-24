@@ -3,14 +3,13 @@ import json
 
 BASE_PATH = '../pyright-internal/typeshed-fallback'
 
-
 dirlisting = {
   '': [
         {'name': 'stdlib', 'isFile': False, 'isDir': True},
         {'name': 'stubs', 'isFile': False, 'isDir': True}
       ],
   'stubs': [
-        {'name': 'requests', 'isFile': False, 'isDir': True}
+        {'name': 'requests', 'isFile': False, 'isDir': True},
       ],
 }
 
