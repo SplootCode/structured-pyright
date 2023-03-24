@@ -10,7 +10,6 @@ dirlisting = {
       ],
   'stubs': [
         {'name': 'requests', 'isFile': False, 'isDir': True},
-        {'name': 'pandas', 'isFile': False, 'isDir': True}
       ],
 }
 
@@ -34,7 +33,6 @@ def scan(folderPath):
 
 scan('stdlib')
 scan('stubs/requests')
-scan('stubs/pandas')
 
 preamble = '''
 type DirListing = { [key: string]: { name: string; isFile: boolean; isDir: boolean }[] };
