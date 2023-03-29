@@ -16,7 +16,7 @@ export { Scope } from 'pyright-internal/analyzer/scope';
 export { SourceFile } from 'pyright-internal/analyzer/sourceFile';
 export { Symbol, SymbolTable } from 'pyright-internal/analyzer/symbol';
 export { TypeResult } from 'pyright-internal/analyzer/typeEvaluatorTypes';
-export { CallSignatureInfo, EvaluatorFlags } from 'pyright-internal/analyzer/typeEvaluatorTypes';
+export { CallSignatureInfo, EvaluatorFlags, TypeEvaluator } from 'pyright-internal/analyzer/typeEvaluatorTypes';
 export { FunctionParameter, Type, TypeBase, TypeCategory, TypeFlags } from 'pyright-internal/analyzer/types';
 export { transformPossibleRecursiveTypeAlias } from 'pyright-internal/analyzer/typeUtils';
 export {
