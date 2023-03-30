@@ -1,7 +1,9 @@
 import { ImportResolver } from 'pyright-internal/analyzer/importResolver';
-import { ConfigOptions } from 'pyright-internal/common/configOptions';
+import { PythonPathResult } from 'pyright-internal/analyzer/pythonPathUtils';
+import { ConfigOptions, PythonPlatform } from 'pyright-internal/common/configOptions';
 import { FileSystem } from 'pyright-internal/common/fileSystem';
-import { NoAccessHost } from 'pyright-internal/common/host';
+import { Host, HostKind, NoAccessHost } from 'pyright-internal/common/host';
+import { PythonVersion } from 'pyright-internal/common/pythonVersion';
 
 import { FakeFileSystem } from './fakeFileSystem';
 import { StructuredEditorProgram } from './structuredEditorProgram';
@@ -45,10 +47,31 @@ export function createStructuredProgram(hostedTypeshedBasePath: string): Structu
     return program;
 }
 
+class PyodideHost implements Host {
+    get kind(): HostKind {
+        return HostKind.NoAccess;
+    }
+
+    getPythonSearchPaths(pythonPath?: string, logInfo?: string[]): PythonPathResult {
+        return {
+            paths: ['/lib/python3.10', '/lib/python3.10/site-packages'],
+            prefix: '/',
+        };
+    }
+
+    getPythonVersion(pythonPath?: string, logInfo?: string[]): PythonVersion | undefined {
+        return PythonVersion.V3_10;
+    }
+
+    getPythonPlatform(logInfo?: string[]): PythonPlatform | undefined {
+        return PythonPlatform.Linux;
+    }
+}
+
 export function createStructuredProgramWorker(fs: FileSystem): StructuredEditorProgram {
     const workspacePath = '/';
 
-    const host = new NoAccessHost();
+    const host = new PyodideHost();
     const configOptions = new ConfigOptions(workspacePath, '');
     const importResolver = new ImportResolver(fs, configOptions, host);
     const program = new StructuredEditorProgram(importResolver, configOptions, console);

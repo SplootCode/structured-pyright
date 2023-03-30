@@ -100,6 +100,7 @@ import { HoverResults } from 'pyright-internal/languageService/hoverProvider';
 import { ReferenceCallback, ReferencesResult } from 'pyright-internal/languageService/referencesProvider';
 import { RenameModuleProvider } from 'pyright-internal/languageService/renameModuleProvider';
 import { SignatureHelpResults } from 'pyright-internal/languageService/signatureHelpProvider';
+import { getDocumentationPartsForTypeAndDecl } from 'pyright-internal/languageService/tooltipUtils';
 import { ModuleNode, ParseNodeType } from 'pyright-internal/parser/parseNodes';
 import { ModuleImport, ParseResults } from 'pyright-internal/parser/parser';
 import { IgnoreComment } from 'pyright-internal/parser/tokenizer';
@@ -1017,6 +1018,29 @@ export class StructuredEditorProgram {
         }
     }
 
+    private _parseFile(fileToParse: SourceFileInfo, content?: string) {
+        if (!this._isFileNeeded(fileToParse) || !fileToParse.sourceFile.isParseRequired()) {
+            return;
+        }
+
+        if (fileToParse.sourceFile.parse(this._configOptions, this._importResolver, content)) {
+            this._parsedFileCount++;
+            this._updateSourceFileImports(fileToParse, this._configOptions);
+        }
+
+        if (fileToParse.sourceFile.isFileDeleted()) {
+            fileToParse.isTracked = false;
+
+            // Mark any files that depend on this file as dirty
+            // also. This will retrigger analysis of these other files.
+            const markDirtyMap = new Map<string, boolean>();
+            this._markFileDirtyRecursive(fileToParse, markDirtyMap);
+
+            // Invalidate the import resolver's cache as well.
+            this._importResolver.invalidateCache();
+        }
+    }
+
     // Binds the specified file and all of its dependencies, recursively. If
     // it runs out of time, it returns true. If it completes, it returns false.
     private _bindFile(fileToAnalyze: SourceFileInfo, content?: string): void {
@@ -1024,7 +1048,7 @@ export class StructuredEditorProgram {
             return;
         }
 
-        // this._parseFile(fileToAnalyze, content);
+        this._parseFile(fileToAnalyze, content);
 
         const getScopeIfAvailable = (fileInfo: SourceFileInfo | undefined) => {
             if (!fileInfo || fileInfo === fileToAnalyze) {
@@ -1678,7 +1702,7 @@ export class StructuredEditorProgram {
                 return undefined;
             }
 
-            const content = ''; //sourceFileInfo.sourceFile.getFileContent() ?? '';
+            const content = sourceFileInfo.sourceFile.getFileContent() ?? '';
             if (
                 options.indexingForAutoImportMode &&
                 !options.forceIndexing &&
@@ -1788,6 +1812,12 @@ export class StructuredEditorProgram {
                 token
             );
         });
+    }
+
+    getDocumentationPartsforTypeAndDecl(type: Type, resolvedDecl: Declaration): string[] | undefined {
+        const filePath = resolvedDecl?.path;
+        const sourceMapper = this._createSourceMapper(this._configOptions.findExecEnvironment(filePath));
+        return getDocumentationPartsForTypeAndDecl(sourceMapper, type, resolvedDecl, this._evaluator!);
     }
 
     getSignatureHelpForPosition(
@@ -2143,7 +2173,7 @@ export class StructuredEditorProgram {
                         // from accidentally changing third party library or type stub.
                         if (this._isUserCode(curSourceFileInfo)) {
                             // Make sure searching symbol name exists in the file.
-                            const content = ''; //curSourceFileInfo.sourceFile.getFileContent() ?? '';
+                            const content = curSourceFileInfo.sourceFile.getFileContent() ?? '';
                             if (content.indexOf(referencesResult.symbolName) < 0) {
                                 continue;
                             }
@@ -2422,7 +2452,7 @@ export class StructuredEditorProgram {
             // except the file that got actually renamed/moved.
             // The file that got moved might have relative import paths we need to update.
             const filePath = currentFileInfo.sourceFile.getFilePath();
-            const content = ''; //currentFileInfo.sourceFile.getFileContent() ?? '';
+            const content = currentFileInfo.sourceFile.getFileContent() ?? '';
             if (filePath !== currentFilePath && content.indexOf(filteringText) < 0) {
                 continue;
             }
@@ -2645,15 +2675,15 @@ export class StructuredEditorProgram {
             execEnv,
             this._evaluator!,
             (stubFilePath: string, implFilePath: string) => {
-                // const stubFileInfo = this._getSourceFileInfoFromPath(stubFilePath);
-                // if (!stubFileInfo) {
-                //     return undefined;
-                // }
-                // this._addShadowedFile(stubFileInfo, implFilePath);
-                // return this.getBoundSourceFile(implFilePath);
-                return undefined;
+                const stubFileInfo = this._getSourceFileInfoFromPath(stubFilePath);
+                if (!stubFileInfo) {
+                    return undefined;
+                }
+                this._addShadowedFile(stubFileInfo, implFilePath);
+                return this.getBoundSourceFile(implFilePath);
+                // return undefined;
             },
-            (f) => undefined, //this.getBoundSourceFile(f),
+            (f) => this.getBoundSourceFile(f),
             mapCompiled ?? false,
             preferStubs ?? false
         );
