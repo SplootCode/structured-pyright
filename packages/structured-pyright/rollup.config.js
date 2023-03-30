@@ -1,4 +1,5 @@
 import commonjs from '@rollup/plugin-commonjs';
+import inject from '@rollup/plugin-inject';
 import json from '@rollup/plugin-json';
 import { nodeResolve } from '@rollup/plugin-node-resolve';
 import typescript from '@rollup/plugin-typescript';
@@ -20,6 +21,12 @@ export default [
             }),
             commonjs(),
             json(),
+            {
+                ...inject({
+                    Buffer: ['buffer/', 'Buffer'],
+                    process: 'process-es6/',
+                }),
+            },
             nodePolyfills(),
             nodeResolve(),
         ],

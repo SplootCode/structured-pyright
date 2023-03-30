@@ -5,7 +5,7 @@
     "module": "dist/structured-pyright.mjs",
     "typings": "dist/structured-pyright.d.ts",
     "description": "Type checker for structured editors using the Python AST",
-    "version": "1.0.10",
+    "version": "1.0.11",
     "license": "MIT",
     "author": {
         "name": "Katie Bell"
@@ -19,17 +19,10 @@
         "watch": "rollup -c -w"
     },
     "dependencies": {
-
     },
     "devDependencies": {
-        "leven": "^3.1.0",
-        "vscode-jsonrpc": "8.0.0-next.7",
-        "vscode-languageclient": "8.0.0-next.14",
-        "vscode-languageserver": "8.0.0-next.10",
-        "vscode-languageserver-protocol": "3.17.0-next.16",
-        "vscode-languageserver-textdocument": "^1.0.5",
-        "vscode-uri": "^3.0.3",
         "@rollup/plugin-commonjs": "^22.0.0",
+        "@rollup/plugin-inject": "^5.0.3",
         "@rollup/plugin-json": "^4.1.0",
         "@rollup/plugin-node-resolve": "^13.3.0",
         "@rollup/plugin-typescript": "^8.3.2",
@@ -38,12 +31,19 @@
         "copy-webpack-plugin": "^10.2.4",
         "copyfiles": "^2.4.1",
         "esbuild-loader": "^2.18.0",
+        "leven": "^3.1.0",
         "rollup": "^2.74.1",
         "rollup-plugin-dts": "^4.2.1",
         "rollup-plugin-polyfill-node": "^0.9.0",
         "shx": "^0.3.4",
         "ts-loader": "^9.2.6",
         "typescript": "^4.6.4",
+        "vscode-jsonrpc": "8.0.0-next.7",
+        "vscode-languageclient": "8.0.0-next.14",
+        "vscode-languageserver": "8.0.0-next.10",
+        "vscode-languageserver-protocol": "3.17.0-next.16",
+        "vscode-languageserver-textdocument": "^1.0.5",
+        "vscode-uri": "^3.0.3",
         "webpack": "^5.68.0",
         "webpack-cli": "^4.9.2"
     },
